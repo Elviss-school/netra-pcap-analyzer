@@ -297,3 +297,26 @@ body {
   font-size: 0.85rem;
   color: #888;
 }
+/* Ensure body and html allow scrolling */
+html, body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  height: 100%;
+}
+
+#root {
+  min-height: 100vh;
+  overflow-y: auto;
+}
+
+/* Make all main content containers scrollable */
+.main-content {
+  height: calc(100vh - 64px); /* Adjust for navbar height */
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Smooth scrolling */
+* {
+  scroll-behavior: smooth;
+}

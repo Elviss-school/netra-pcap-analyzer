@@ -76,7 +76,8 @@ export default function ThreeDView({ studentMode, pcapData }) {
   }
 
   return (
-    <div className="h-full w-full relative bg-black">
+    <div className="h-full w-full relative bg-black overflow-hidden">
+        {/* Info Panel - Top Left */}
         <div className="absolute top-6 left-6 z-10 p-4 bg-surface/80 backdrop-blur rounded-xl border border-white/10 max-w-sm">
             <h2 className="text-xl font-bold text-white mb-2">3D Network Topology</h2>
             <p className="text-sm text-textMuted mb-2">
@@ -99,6 +100,120 @@ export default function ThreeDView({ studentMode, pcapData }) {
             )}
         </div>
 
+        {/* LEGEND - Top Right */}
+        <div className="absolute top-6 right-6 z-10 bg-gray-900/95 backdrop-blur rounded-xl p-4 border border-white/20 shadow-2xl max-w-xs">
+          <h3 className="text-white font-bold mb-3 text-base flex items-center gap-2">
+            <span className="text-lg">📖</span>
+            Network Legend
+          </h3>
+          
+          <div className="space-y-3 text-xs">
+            {/* Node Colors */}
+            <div className="border-b border-gray-700 pb-3">
+              <p className="text-gray-400 font-semibold mb-2 uppercase text-[10px] tracking-wide">Node Types</p>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-blue-500 shadow-lg shadow-blue-500/50"></div>
+                  <span className="text-white">Normal Node</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-red-500 shadow-lg shadow-red-500/50"></div>
+                  <span className="text-white">High Activity (Alert)</span>
+                </div>
+              </div>
+              <p className="text-gray-500 text-[10px] mt-2 italic">
+                Alert = 3× average packet count
+              </p>
+            </div>
+            
+            {/* Node Size */}
+            <div className="border-b border-gray-700 pb-3">
+              <p className="text-gray-400 font-semibold mb-2 uppercase text-[10px] tracking-wide">Node Size</p>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-white opacity-70"></div>
+                  <div className="w-3 h-3 rounded-full bg-white opacity-85"></div>
+                  <div className="w-4 h-4 rounded-full bg-white"></div>
+                </div>
+                <span className="text-white">Packet Volume →</span>
+              </div>
+              <p className="text-gray-500 text-[10px] italic">
+                Larger nodes = more packets
+              </p>
+            </div>
+            
+            {/* Connection Lines */}
+            <div className="border-b border-gray-700 pb-3">
+              <p className="text-gray-400 font-semibold mb-2 uppercase text-[10px] tracking-wide">Connections</p>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-0.5 bg-cyan-400 shadow-lg shadow-cyan-400/30"></div>
+                  <span className="text-white">Data Flow</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="relative w-8 h-2">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full h-0.5 bg-cyan-400"></div>
+                    </div>
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-cyan-400 animate-pulse"></div>
+                  </div>
+                  <span className="text-white">Active Traffic</span>
+                </div>
+              </div>
+              <p className="text-gray-500 text-[10px] mt-2 italic">
+                Line width = traffic volume
+              </p>
+            </div>
+            
+            {/* Controls */}
+            <div className="bg-gray-800/50 rounded-lg p-2 mt-3">
+              <p className="text-gray-400 font-semibold mb-2 uppercase text-[10px] tracking-wide">Controls</p>
+              <div className="text-white text-[11px] space-y-1.5">
+                <div className="flex items-start gap-2">
+                  <span className="text-blue-400 font-semibold min-w-[20px]">🖱️</span>
+                  <div>
+                    <p className="font-medium">Left Drag: Rotate</p>
+                    <p className="text-gray-500 text-[10px]">Spin the network around</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-green-400 font-semibold min-w-[20px]">🖱️</span>
+                  <div>
+                    <p className="font-medium">Right Drag: Pan</p>
+                    <p className="text-gray-500 text-[10px]">Move the camera</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-yellow-400 font-semibold min-w-[20px]">⚙️</span>
+                  <div>
+                    <p className="font-medium">Scroll: Zoom</p>
+                    <p className="text-gray-500 text-[10px]">Get closer or further</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-purple-400 font-semibold min-w-[20px]">👆</span>
+                  <div>
+                    <p className="font-medium">Click Node: Details</p>
+                    <p className="text-gray-500 text-[10px]">See IP information</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Student Mode Extra Help */}
+            {studentMode && (
+              <div className="bg-secondary/20 border border-secondary/40 rounded-lg p-2 mt-3">
+                <p className="text-secondary font-bold text-[10px] mb-1">💡 STUDENT TIP</p>
+                <p className="text-white text-[10px] leading-relaxed">
+                  Look for clusters of connected nodes - these represent devices that communicate frequently!
+                  Red nodes might indicate suspicious activity.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 3D Graph */}
         <ForceGraph3D
             graphData={topologyData}
             nodeLabel="id"
@@ -111,6 +226,7 @@ export default function ThreeDView({ studentMode, pcapData }) {
             nodeVal={node => node.packets / 10}
             nodeColor={node => node.group === 'alert' ? '#FF6B6B' : '#4D96FF'}
             linkWidth={link => Math.min(link.value / 10, 3)}
+            linkColor={() => 'rgba(77, 214, 255, 0.6)'}
         />
     </div>
   );

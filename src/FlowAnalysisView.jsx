@@ -410,7 +410,7 @@ Format your response with clear headers and bullet points. Be specific and techn
         borderBottom: '2px solid rgba(255, 255, 255, 0.1)',
         marginBottom: '2rem'
       }}>
-        {['overview', 'security', 'performance'].map(tab => (
+        {['overview', ].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveSection(tab)}

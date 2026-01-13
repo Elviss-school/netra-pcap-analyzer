@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { AreaChart, Area, BarChart, Bar, LineChart, Line, ScatterChart, Scatter, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid, Treemap } from 'recharts';
+import { AreaChart, Area, BarChart, Bar, LineChart, Line, ScatterChart, Scatter, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid } from 'recharts';
 import ForceGraph2D from 'react-force-graph-2d';
 import { Info, Sparkles, AlertTriangle, Settings } from 'lucide-react';
 
@@ -41,6 +41,7 @@ export default function DashboardView({ studentMode, pcapData }) {
   const [protocolFilter, setProtocolFilter] = useState('all');
   const [xAxis, setXAxis] = useState('time');
   const [yAxis, setYAxis] = useState('packet_size');
+  const [timelineYAxis, setTimelineYAxis] = useState('packet_size');
 
   console.log('DashboardView render - pcapData:', pcapData ? 'exists' : 'null');
   console.log('Current graphType:', graphType);
@@ -133,11 +134,60 @@ export default function DashboardView({ studentMode, pcapData }) {
         links: Array.from(linkMap.values())
       };
 
-      // Timeline
-      const timelineData = protocols.map(protocol => ({
-        protocol,
-        data: filteredPackets.filter(p => p.protocol === protocol)
-      }));
+      // Timeline - Fixed with 10% increments
+      const maxTime = Math.max(...filteredPackets.map(p => p.time || 0));
+      const timeRange = maxTime > 0 ? maxTime : 1;
+      const numBuckets = 10;
+      const bucketSize = timeRange / numBuckets;
+      
+      const fixedTicks = Array.from({ length: numBuckets + 1 }, (_, i) => i * bucketSize);
+      
+      const timelineData = [];
+      for (let i = 0; i < numBuckets; i++) {
+        const bucketStart = i * bucketSize;
+        const bucketEnd = (i + 1) * bucketSize;
+        const bucketData = { 
+          time: bucketStart,
+          timeLabel: `${(i * 10)}%`,
+          timeValue: bucketStart.toFixed(2) + 's'
+        };
+        
+        protocols.forEach(protocol => {
+          const packetsInBucket = filteredPackets.filter(p => 
+            p.protocol === protocol && 
+            p.time >= bucketStart && 
+            p.time < bucketEnd
+          );
+          
+          let yValue = null;
+          if (packetsInBucket.length > 0) {
+            switch(timelineYAxis) {
+              case 'packet_size':
+                yValue = packetsInBucket.reduce((sum, p) => sum + (p.packet_size || 0), 0) / packetsInBucket.length;
+                break;
+              case 'payload_size':
+                yValue = packetsInBucket.reduce((sum, p) => sum + (p.payload_size || 0), 0) / packetsInBucket.length;
+                break;
+              case 'count':
+                yValue = packetsInBucket.length;
+                break;
+              case 'packet_rate':
+                yValue = packetsInBucket.length / bucketSize;
+                break;
+              case 'data_rate':
+                const totalBytes = packetsInBucket.reduce((sum, p) => sum + (p.packet_size || 0), 0);
+                yValue = (totalBytes * 8) / (bucketSize * 1000000);
+                break;
+              default:
+                yValue = packetsInBucket.length;
+            }
+          }
+          
+          bucketData[protocol] = yValue;
+        });
+        
+        timelineData.push(bucketData);
+      }
 
       // Protocol Pie
       const protocolCount = {};
@@ -149,8 +199,8 @@ export default function DashboardView({ studentMode, pcapData }) {
 
       // Bandwidth
       const timeWindow = 1.0;
-      const maxTime = Math.max(...filteredPackets.map(p => p.time));
-      const numWindows = Math.ceil(maxTime / timeWindow);
+      const maxTimeBandwidth = Math.max(...filteredPackets.map(p => p.time));
+      const numWindows = Math.ceil(maxTimeBandwidth / timeWindow);
       const bandwidthData = [];
       for (let i = 0; i < numWindows; i++) {
         const windowStart = i * timeWindow;
@@ -160,17 +210,6 @@ export default function DashboardView({ studentMode, pcapData }) {
         const mbps = (totalBytes * 8) / 1000000 / timeWindow;
         bandwidthData.push({ time: windowStart, mbps: mbps, packets: packetsInWindow.length });
       }
-
-      // TCP Window Sizes
-      const windowSizes = processedData.summary.window_sizes || [];
-      const windowRanges = { '0-1K': 0, '1K-10K': 0, '10K-64K': 0, '64K+': 0 };
-      windowSizes.forEach(size => {
-        if (size < 1024) windowRanges['0-1K']++;
-        else if (size < 10240) windowRanges['1K-10K']++;
-        else if (size < 65536) windowRanges['10K-64K']++;
-        else windowRanges['64K+']++;
-      });
-      const windowSizeData = Object.entries(windowRanges).map(([range, count]) => ({ range, count }));
 
       // Retransmissions Timeline
       const retrans = processedData.packets.filter(p => p.retransmission);
@@ -183,17 +222,6 @@ export default function DashboardView({ studentMode, pcapData }) {
         const retransInWindow = retrans.filter(p => p.time >= windowStart && p.time < windowEnd);
         retransmissionData.push({ time: windowStart, retransmissions: retransInWindow.length });
       }
-
-      // TCP Connection States
-      const tcpPackets = processedData.packets.filter(p => p.protocol === 'TCP');
-      const synCount = tcpPackets.filter(p => p.flags.includes('SYN') && !p.flags.includes('ACK')).length;
-      const synAckCount = tcpPackets.filter(p => p.flags.includes('SYN') && p.flags.includes('ACK')).length;
-      const finCount = tcpPackets.filter(p => p.flags.includes('FIN')).length;
-      const tcpStatesData = [
-        { name: 'SYN Sent', value: synCount, color: '#4D96FF' },
-        { name: 'SYN-ACK', value: synAckCount, color: '#6BCB77' },
-        { name: 'FIN Sent', value: finCount, color: '#FFB84D' }
-      ].filter(d => d.value > 0);
 
       // Inter-Packet Delay
       const delays = processedData.summary.inter_packet_delays || [];
@@ -214,35 +242,6 @@ export default function DashboardView({ studentMode, pcapData }) {
         protocol: p.protocol
       }));
 
-      // Port Scan Detection
-      const portMap = new Map();
-      processedData.packets.forEach(p => {
-        if (p.dst_port > 0) {
-          const key = `${p.src_ip}:${p.dst_port}`;
-          portMap.set(key, (portMap.get(key) || 0) + 1);
-        }
-      });
-      const ipPortCounts = {};
-      portMap.forEach((count, key) => {
-        const [ip] = key.split(':');
-        ipPortCounts[ip] = (ipPortCounts[ip] || 0) + 1;
-      });
-      const portScanData = Object.entries(ipPortCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
-        .map(([ip, ports]) => ({ ip, ports }));
-
-      // ICMP Types
-      const icmpTypes = processedData.summary.icmp_types || {};
-      const typeNames = {
-        0: 'Echo Reply', 3: 'Dest Unreachable', 8: 'Echo Request',
-        11: 'Time Exceeded', 5: 'Redirect'
-      };
-      const icmpTypeData = Object.entries(icmpTypes).map(([type, count]) => ({
-        type: typeNames[type] || `Type ${type}`,
-        count
-      }));
-
       // Geographic Flow (TTL-based)
       const ttlDist = processedData.summary.ttl_distribution || {};
       const geoRanges = { 'Local (250-255)': 0, 'Regional (128-249)': 0, 'Remote (64-127)': 0, 'Far (1-63)': 0 };
@@ -255,40 +254,36 @@ export default function DashboardView({ studentMode, pcapData }) {
       });
       const geoFlowData = Object.entries(geoRanges).map(([location, count]) => ({ location, count }));
 
-      // Protocol Hierarchy (Treemap)
-      const protocolColors = {
-        'HTTPS': '#4D96FF', 'HTTP': '#A45EE5', 'DNS': '#FFB84D', 'TCP': '#6BCB77',
-        'UDP': '#FF6B9D', 'ICMP': '#FF6B6B', 'SSH': '#00D9FF', 'FTP': '#FF9F00',
-        'RDP': '#C77DFF', 'Other': '#888888'
-      };
-      const protocolHierarchyData = Object.entries(processedData.summary.protocols).map(([name, size]) => ({
-        name,
-        size,
-        fill: protocolColors[name] || '#888888'
-      }));
-
       console.log('visualizationData computed successfully');
+      console.log('Timeline data:', {
+        timeRange,
+        bucketSize,
+        fixedTicks,
+        timelineDataLength: timelineData.length
+      });
+      
       return {
         scatterData,
         networkFlowData,
         timelineData,
+        protocols,
+        timelineMetadata: {
+          timeRange,
+          bucketSize,
+          fixedTicks
+        },
         protocolPieData,
         bandwidthData,
-        windowSizeData,
         retransmissionData,
-        tcpStatesData,
         ipdData,
         payloadHeaderData,
-        portScanData,
-        icmpTypeData,
-        geoFlowData,
-        protocolHierarchyData
+        geoFlowData
       };
     } catch (err) {
       console.error('Error computing visualizationData:', err);
       return {};
     }
-  }, [filteredPackets, processedData, xAxis, yAxis]);
+  }, [filteredPackets, processedData, xAxis, yAxis, timelineYAxis]);
 
   console.log('visualizationData keys:', Object.keys(visualizationData));
 
@@ -313,9 +308,25 @@ export default function DashboardView({ studentMode, pcapData }) {
 
   const formatAxisLabel = (axis) => {
     const labels = {
-      time: 'Time (s)', packet_size: 'Packet Size (bytes)', src_port: 'Source Port',
-      dst_port: 'Destination Port', ttl: 'TTL', window_size: 'Window Size',
-      seq_num: 'Sequence Number', payload_size: 'Payload Size'
+      time: 'Time (s)', 
+      packet_size: 'Packet Size (bytes)', 
+      src_port: 'Source Port',
+      dst_port: 'Destination Port', 
+      ttl: 'TTL', 
+      window_size: 'Window Size',
+      seq_num: 'Sequence Number', 
+      payload_size: 'Payload Size'
+    };
+    return labels[axis] || axis;
+  };
+
+  const formatTimelineYAxisLabel = (axis) => {
+    const labels = {
+      packet_size: 'Avg Packet Size (bytes)',
+      payload_size: 'Avg Payload Size (bytes)',
+      count: 'Packet Count',
+      packet_rate: 'Packet Rate (packets/s)',
+      data_rate: 'Data Rate (Mbps)'
     };
     return labels[axis] || axis;
   };
@@ -386,22 +397,13 @@ export default function DashboardView({ studentMode, pcapData }) {
                 <option value="protocol-pie">Protocol Distribution</option>
                 <option value="bandwidth">Bandwidth Over Time</option>
               </optgroup>
-              <optgroup label="TCP Deep Dive">
-                <option value="tcp-window">TCP Window Sizes</option>
-                <option value="retransmissions">Retransmission Timeline</option>
-                <option value="tcp-states">TCP Connection States</option>
-              </optgroup>
               <optgroup label="Performance">
                 <option value="inter-packet-delay">Inter-Packet Delay</option>
                 <option value="payload-header">Payload vs Header</option>
-              </optgroup>
-              <optgroup label="Security">
-                <option value="port-scan">Port Scan Detection</option>
-                <option value="icmp-types">ICMP Type Analysis</option>
+                <option value="retransmissions">Retransmission Timeline</option>
               </optgroup>
               <optgroup label="Advanced">
                 <option value="geo-flow">Geographic Flow (TTL)</option>
-                <option value="protocol-hierarchy">Protocol Hierarchy</option>
               </optgroup>
             </select>
           </div>
@@ -444,6 +446,19 @@ export default function DashboardView({ studentMode, pcapData }) {
                 </select>
               </div>
             </>
+          )}
+
+          {graphType === 'timeline' && (
+            <div>
+              <label className="block text-xs font-medium text-textMuted mb-2">Y Axis Metric</label>
+              <select value={timelineYAxis} onChange={e => setTimelineYAxis(e.target.value)} className="w-full bg-bg border border-white/10 rounded px-3 py-2 text-sm focus:border-primary focus:outline-none">
+                <option value="packet_size">Avg Packet Size</option>
+                <option value="payload_size">Avg Payload Size</option>
+                <option value="count">Packet Count</option>
+                <option value="packet_rate">Packet Rate</option>
+                <option value="data_rate">Data Rate</option>
+              </select>
+            </div>
           )}
         </div>
       </div>
@@ -490,18 +505,74 @@ export default function DashboardView({ studentMode, pcapData }) {
             />
           )}
 
-          {graphType === 'timeline' && visualizationData.timelineData && (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart>
-                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-                <XAxis dataKey="time" stroke="#A0A0C0" />
-                <YAxis stroke="#A0A0C0" />
-                <Tooltip contentStyle={{ backgroundColor: '#252540', border: 'none', borderRadius: '8px' }} />
-                {visualizationData.timelineData.map(item => (
-                  <Line key={item.protocol} data={item.data} type="monotone" dataKey="packet_size" stroke={protocolColors[item.protocol] || '#888888'} name={item.protocol} dot={false} strokeWidth={2} />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
+          {graphType === 'timeline' && visualizationData.timelineData && visualizationData.protocols && (
+            <div className="h-full flex flex-col">
+              <div className="flex-1">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={visualizationData.timelineData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
+                    <XAxis
+                      dataKey="time"
+                      type="number"
+                      domain={[0, visualizationData.timelineMetadata?.timeRange || 1]}
+                      ticks={visualizationData.timelineMetadata?.fixedTicks || []}
+                      stroke="#A0A0C0"
+                      tickFormatter={(value) => `${value.toFixed(2)}s`}
+                    />
+                    <YAxis
+                      stroke="#A0A0C0"
+                      label={{ 
+                        value: formatTimelineYAxisLabel(timelineYAxis), 
+                        angle: -90, 
+                        position: 'insideLeft',
+                        offset: 10
+                      }}
+                      tickFormatter={(value) => {
+                        if (timelineYAxis === 'data_rate') return `${value.toFixed(2)}`;
+                        if (timelineYAxis === 'packet_rate') return `${value.toFixed(1)}`;
+                        return value.toFixed(0);
+                      }}
+                    />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#252540', border: 'none', borderRadius: '8px' }}
+                      labelFormatter={(value) => {
+                        const percent = (value / visualizationData.timelineMetadata?.timeRange * 100).toFixed(0);
+                        return `Time: ${parseFloat(value).toFixed(2)}s (${percent}%)`;
+                      }}
+                      formatter={(value, name) => {
+                        if (timelineYAxis === 'data_rate') return [`${value.toFixed(2)} Mbps`, name];
+                        if (timelineYAxis === 'packet_rate') return [`${value.toFixed(1)} packets/s`, name];
+                        if (timelineYAxis === 'packet_size' || timelineYAxis === 'payload_size') return [`${value.toFixed(0)} bytes`, name];
+                        return [value, name];
+                      }}
+                    />
+                    {visualizationData.protocols.map(protocol => (
+                      <Line
+                        key={protocol}
+                        type="monotone"
+                        dataKey={protocol}
+                        stroke={protocolColors[protocol] || '#888888'}
+                        name={protocol}
+                        dot={false}
+                        strokeWidth={2}
+                        connectNulls
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              
+              <div className="mt-4 pt-2 border-t border-white/10">
+                <div className="flex justify-between text-xs text-gray-400">
+                  {visualizationData.timelineMetadata?.fixedTicks?.map((tick, index) => (
+                    <div key={index} className="flex flex-col items-center">
+                      <div>{tick.toFixed(2)}s</div>
+                      <div className="mt-1 font-medium">{index * 10}%</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
 
           {graphType === 'protocol-pie' && visualizationData.protocolPieData && (
@@ -529,18 +600,6 @@ export default function DashboardView({ studentMode, pcapData }) {
             </ResponsiveContainer>
           )}
 
-          {graphType === 'tcp-window' && visualizationData.windowSizeData && (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={visualizationData.windowSizeData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-                <XAxis dataKey="range" stroke="#A0A0C0" />
-                <YAxis stroke="#A0A0C0" />
-                <Tooltip contentStyle={{ backgroundColor: '#252540', border: 'none', borderRadius: '8px' }} />
-                <Bar dataKey="count" fill="#4D96FF" />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-
           {graphType === 'retransmissions' && visualizationData.retransmissionData && (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={visualizationData.retransmissionData}>
@@ -550,17 +609,6 @@ export default function DashboardView({ studentMode, pcapData }) {
                 <Tooltip contentStyle={{ backgroundColor: '#252540', border: 'none', borderRadius: '8px' }} />
                 <Line type="monotone" dataKey="retransmissions" stroke="#FF6B6B" strokeWidth={3} dot={{ fill: '#FF6B6B', r: 4 }} />
               </LineChart>
-            </ResponsiveContainer>
-          )}
-
-          {graphType === 'tcp-states' && visualizationData.tcpStatesData && visualizationData.tcpStatesData.length > 0 && (
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={visualizationData.tcpStatesData} cx="50%" cy="50%" labelLine={true} label={({ name, value }) => `${name}: ${value}`} outerRadius={200} dataKey="value">
-                  {visualizationData.tcpStatesData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                </Pie>
-                <Tooltip contentStyle={{ backgroundColor: '#252540', border: 'none', borderRadius: '8px' }} />
-              </PieChart>
             </ResponsiveContainer>
           )}
 
@@ -588,30 +636,6 @@ export default function DashboardView({ studentMode, pcapData }) {
             </ResponsiveContainer>
           )}
 
-          {graphType === 'port-scan' && visualizationData.portScanData && visualizationData.portScanData.length > 0 && (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={visualizationData.portScanData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-                <XAxis type="number" stroke="#A0A0C0" />
-                <YAxis type="category" dataKey="ip" stroke="#A0A0C0" width={150} />
-                <Tooltip contentStyle={{ backgroundColor: '#252540', border: 'none', borderRadius: '8px' }} />
-                <Bar dataKey="ports" fill="#FF6B6B" />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-
-          {graphType === 'icmp-types' && visualizationData.icmpTypeData && visualizationData.icmpTypeData.length > 0 && (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={visualizationData.icmpTypeData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-                <XAxis dataKey="type" stroke="#A0A0C0" angle={-45} textAnchor="end" height={100} />
-                <YAxis stroke="#A0A0C0" />
-                <Tooltip contentStyle={{ backgroundColor: '#252540', border: 'none', borderRadius: '8px' }} />
-                <Bar dataKey="count" fill="#FF6B6B" />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-
           {graphType === 'geo-flow' && visualizationData.geoFlowData && (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={visualizationData.geoFlowData}>
@@ -621,16 +645,6 @@ export default function DashboardView({ studentMode, pcapData }) {
                 <Tooltip contentStyle={{ backgroundColor: '#252540', border: 'none', borderRadius: '8px' }} />
                 <Bar dataKey="count" fill="#45B7D1" />
               </BarChart>
-            </ResponsiveContainer>
-          )}
-
-          {graphType === 'protocol-hierarchy' && visualizationData.protocolHierarchyData && (
-            <ResponsiveContainer width="100%" height="100%">
-              <Treemap data={visualizationData.protocolHierarchyData} dataKey="size" stroke="#fff" fill="#8884d8">
-                {visualizationData.protocolHierarchyData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.fill} />
-                ))}
-              </Treemap>
             </ResponsiveContainer>
           )}
         </div>

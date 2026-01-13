@@ -1,7 +1,7 @@
 // src/components/AuthPage.jsx (WITH AUTO-REDIRECT AFTER SIGNUP)
 
 import React, { useState } from 'react';
-import { Network, GraduationCap, Users, AlertCircle, Mail, Lock, User as UserIcon, CheckCircle } from 'lucide-react';
+import { Network, GraduationCap, Users, AlertCircle, Mail, Lock, User as UserIcon, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { userService } from '../services/userService';
 
 const AuthPage = ({ onAuthSuccess }) => {
@@ -11,9 +11,56 @@ const AuthPage = ({ onAuthSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [signupSuccess, setSignupSuccess] = useState(false);
+
+  // Password validation function
+  const validatePassword = (pass) => {
+    const hasMinLength = pass.length >= 6;
+    const hasUpperCase = /[A-Z]/.test(pass);
+    const hasLowerCase = /[a-z]/.test(pass);
+    const hasNumbers = /\d/.test(pass);
+    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pass);
+    
+    let strength = 0;
+    if (hasMinLength) strength++;
+    if (hasUpperCase) strength++;
+    if (hasLowerCase) strength++;
+    if (hasNumbers) strength++;
+    if (hasSpecialChar) strength++;
+    
+    return {
+      strength,
+      hasMinLength,
+      hasUpperCase,
+      hasLowerCase,
+      hasNumbers,
+      hasSpecialChar
+    };
+  };
+
+  const passwordValidation = validatePassword(password);
+
+  // Check if form is valid for submission
+  const isFormValid = () => {
+    if (!username.trim() || username.trim().length < 3 || username.trim().length > 20 || !/^[a-zA-Z0-9_]+$/.test(username.trim())) {
+      return false;
+    }
+    
+    if (isSignup) {
+      if (!selectedRole) return false;
+      if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return false;
+      if (!password || passwordValidation.strength < 3) return false;
+      if (password !== confirmPassword) return false;
+    } else {
+      if (!password) return false;
+    }
+    
+    return true;
+  };
 
   const handleAuth = async () => {
     setError(null);
@@ -64,6 +111,11 @@ const AuthPage = ({ onAuthSuccess }) => {
       return;
     }
 
+    if (isSignup && passwordValidation.strength < 3) {
+      setError('Please create a stronger password');
+      return;
+    }
+
     if (isSignup && password !== confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -91,6 +143,8 @@ const AuthPage = ({ onAuthSuccess }) => {
           setEmail('');
           setPassword('');
           setConfirmPassword('');
+          setShowPassword(false);
+          setShowConfirmPassword(false);
           setLoading(false);
         }, 2000);
         
@@ -201,7 +255,8 @@ const AuthPage = ({ onAuthSuccess }) => {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '2rem'
+      padding: '2rem',
+      overflow: 'auto'
     }}>
       <div style={{
         background: '#1a1a1a',
@@ -210,7 +265,9 @@ const AuthPage = ({ onAuthSuccess }) => {
         padding: '3rem',
         maxWidth: '500px',
         width: '100%',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
+        boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+        maxHeight: '90vh',
+        overflow: 'auto'
       }}>
         
         {/* Logo & Title */}
@@ -438,7 +495,7 @@ const AuthPage = ({ onAuthSuccess }) => {
         )}
 
         {/* Password Input */}
-        <div style={{ marginBottom: isSignup ? '1rem' : '1.5rem' }}>
+        <div style={{ marginBottom: isSignup ? '0.5rem' : '1.5rem' }}>
           <label style={{
             display: 'block',
             fontSize: '0.85rem',
@@ -450,33 +507,162 @@ const AuthPage = ({ onAuthSuccess }) => {
             Password
           </label>
           
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              setError(null);
-            }}
-            placeholder="Enter password"
-            style={{
-              width: '100%',
-              fontSize: '1rem',
-              padding: '0.75rem',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '2px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '8px',
-              color: 'white',
-              outline: 'none',
-              transition: 'border-color 0.3s ease'
-            }}
-            onFocus={(e) => e.target.style.borderColor = '#667eea'}
-            onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)'}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter' && !isSignup) {
-                handleAuth();
-              }
-            }}
-          />
+          <div style={{ position: 'relative' }}>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError(null);
+              }}
+              placeholder="Enter password"
+              style={{
+                width: '100%',
+                fontSize: '1rem',
+                padding: '0.75rem',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '2px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '8px',
+                color: 'white',
+                outline: 'none',
+                transition: 'border-color 0.3s ease',
+                paddingRight: '3rem'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#667eea'}
+              onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)'}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && !isSignup) {
+                  handleAuth();
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              style={{
+                position: 'absolute',
+                right: '0.75rem',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'transparent',
+                border: 'none',
+                color: '#888',
+                cursor: 'pointer',
+                padding: '0.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              onMouseEnter={(e) => e.target.style.color = '#667eea'}
+              onMouseLeave={(e) => e.target.style.color = '#888'}
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          </div>
+
+          {/* Password Strength Indicator (Sign Up Only) */}
+          {isSignup && password && (
+            <div style={{ marginTop: '0.75rem' }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '0.5rem'
+              }}>
+                <span style={{ fontSize: '0.8rem', color: '#888' }}>Password Strength:</span>
+                <span style={{
+                  fontSize: '0.8rem',
+                  color: passwordValidation.strength >= 4 ? '#4CAF50' : 
+                         passwordValidation.strength >= 3 ? '#FFB84D' : 
+                         passwordValidation.strength >= 2 ? '#FF6B6B' : '#888'
+                }}>
+                  {passwordValidation.strength === 0 ? 'Very Weak' :
+                   passwordValidation.strength === 1 ? 'Weak' :
+                   passwordValidation.strength === 2 ? 'Fair' :
+                   passwordValidation.strength === 3 ? 'Good' : 'Strong'}
+                </span>
+              </div>
+              
+              {/* 5-level strength bar */}
+              <div style={{
+                display: 'flex',
+                gap: '4px',
+                marginBottom: '0.75rem'
+              }}>
+                {[1, 2, 3, 4, 5].map((level) => (
+                  <div
+                    key={level}
+                    style={{
+                      flex: 1,
+                      height: '4px',
+                      backgroundColor: passwordValidation.strength >= level ? 
+                        (level <= 2 ? '#FF6B6B' : 
+                         level === 3 ? '#FFB84D' : 
+                         level === 4 ? '#4CAF50' : '#4CAF50') : 
+                        'rgba(255, 255, 255, 0.1)',
+                      borderRadius: '2px',
+                      transition: 'all 0.3s ease'
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/* Password Requirements */}
+              <div style={{
+                fontSize: '0.75rem',
+                color: '#888',
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '0.25rem 1rem'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <div style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    backgroundColor: passwordValidation.hasMinLength ? '#4CAF50' : '#FF6B6B'
+                  }} />
+                  <span>At least 6 characters</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <div style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    backgroundColor: passwordValidation.hasUpperCase ? '#4CAF50' : '#FF6B6B'
+                  }} />
+                  <span>Uppercase letter</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <div style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    backgroundColor: passwordValidation.hasLowerCase ? '#4CAF50' : '#FF6B6B'
+                  }} />
+                  <span>Lowercase letter</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <div style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    backgroundColor: passwordValidation.hasNumbers ? '#4CAF50' : '#FF6B6B'
+                  }} />
+                  <span>Number</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <div style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    backgroundColor: passwordValidation.hasSpecialChar ? '#4CAF50' : '#FF6B6B'
+                  }} />
+                  <span>Special character</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Confirm Password (Sign Up Only) */}
@@ -493,63 +679,121 @@ const AuthPage = ({ onAuthSuccess }) => {
               Confirm Password
             </label>
             
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => {
-                setConfirmPassword(e.target.value);
-                setError(null);
-              }}
-              placeholder="Confirm password"
-              style={{
-                width: '100%',
-                fontSize: '1rem',
-                padding: '0.75rem',
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '2px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '8px',
-                color: 'white',
-                outline: 'none',
-                transition: 'border-color 0.3s ease'
-              }}
-              onFocus={(e) => e.target.style.borderColor = '#667eea'}
-              onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)'}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  handleAuth();
-                }
-              }}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  setError(null);
+                }}
+                placeholder="Confirm password"
+                style={{
+                  width: '100%',
+                  fontSize: '1rem',
+                  padding: '0.75rem',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: password && confirmPassword && password !== confirmPassword ? 
+                    '2px solid #FF6B6B' : '2px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '8px',
+                  color: 'white',
+                  outline: 'none',
+                  transition: 'border-color 0.3s ease',
+                  paddingRight: '3rem'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#667eea'}
+                onBlur={(e) => {
+                  if (password && confirmPassword && password !== confirmPassword) {
+                    e.target.style.borderColor = '#FF6B6B';
+                  } else {
+                    e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                  }
+                }}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAuth();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '0.75rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#888',
+                  cursor: 'pointer',
+                  padding: '0.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                onMouseEnter={(e) => e.target.style.color = '#667eea'}
+                onMouseLeave={(e) => e.target.style.color = '#888'}
+              >
+                {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+            
+            {/* Password match indicator */}
+            {password && confirmPassword && (
+              <div style={{
+                marginTop: '0.5rem',
+                fontSize: '0.8rem',
+                color: password === confirmPassword ? '#4CAF50' : '#FF6B6B',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                {password === confirmPassword ? (
+                  <>
+                    <CheckCircle size={14} />
+                    <span>Passwords match</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle size={14} />
+                    <span>Passwords do not match</span>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
 
         {/* Submit Button */}
         <button
           onClick={handleAuth}
-          disabled={loading}
+          disabled={loading || !isFormValid()}
           style={{
             width: '100%',
-            background: loading ? '#555' : 'linear-gradient(135deg, #667eea, #764ba2)',
-            color: 'white',
+            background: loading ? '#555' : 
+                      !isFormValid() ? 'rgba(255, 255, 255, 0.1)' : 
+                      'linear-gradient(135deg, #667eea, #764ba2)',
+            color: loading || !isFormValid() ? '#888' : 'white',
             fontSize: '1.1rem',
             fontWeight: 'bold',
             padding: '1rem',
             border: 'none',
             borderRadius: '8px',
-            cursor: loading ? 'not-allowed' : 'pointer',
+            cursor: loading || !isFormValid() ? 'not-allowed' : 'pointer',
             opacity: loading ? 0.7 : 1,
             marginBottom: '1rem',
-            boxShadow: loading ? 'none' : '0 4px 15px rgba(102, 126, 234, 0.4)',
+            boxShadow: loading || !isFormValid() ? 'none' : '0 4px 15px rgba(102, 126, 234, 0.4)',
             transition: 'all 0.3s ease'
           }}
           onMouseEnter={(e) => {
-            if (!loading) {
+            if (!loading && isFormValid()) {
               e.target.style.transform = 'translateY(-2px)';
               e.target.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.6)';
             }
           }}
           onMouseLeave={(e) => {
-            if (!loading) {
+            if (!loading && isFormValid()) {
               e.target.style.transform = 'translateY(0)';
               e.target.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
             }
@@ -580,7 +824,10 @@ const AuthPage = ({ onAuthSuccess }) => {
               setError(null);
               setSelectedRole(null);
               setEmail('');
+              setPassword('');
               setConfirmPassword('');
+              setShowPassword(false);
+              setShowConfirmPassword(false);
             }}
             style={{
               background: 'none',
@@ -602,6 +849,25 @@ const AuthPage = ({ onAuthSuccess }) => {
           @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+          }
+          
+          /* Scrollbar styling */
+          div::-webkit-scrollbar {
+            width: 8px;
+          }
+          
+          div::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+          }
+          
+          div::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 4px;
+          }
+          
+          div::-webkit-scrollbar-thumb:hover {
+            background: #764ba2;
           }
         `}</style>
       </div>

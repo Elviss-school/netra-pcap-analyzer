@@ -1,4 +1,4 @@
-// src/App.jsx (COMPLETE FILE WITH EMAIL/PASSWORD AUTH)
+// src/App.jsx (COMPLETE FILE WITH CENTERED UPLOAD)
 
 import AuthPage from './components/AuthPage';
 import KahootJoin from './components/KahootJoin';
@@ -10,7 +10,7 @@ import KahootHost from './components/KahootHost';
 import KahootResults from './components/KahootResults';
 import ProfilePage from './components/ProfilePage';
 import React, { useState, useRef, useEffect } from 'react';
-import { LayoutDashboard, Box, Activity, GraduationCap, Upload, Network, List, User, Gamepad2, Plus, FileUp, BarChart3, LogOut } from 'lucide-react';
+import { LayoutDashboard, Box, Activity, GraduationCap, Upload, Network, List, User, Gamepad2, Plus, FileUp, BarChart3, LogOut, AlertTriangle } from 'lucide-react';
 import DashboardView from './DashboardView';
 import ThreeDView from './ThreeDView';
 import FlowAnalysisView from './FlowAnalysisView';
@@ -36,6 +36,98 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
     <Icon size={20} />
     <span className="font-medium">{label}</span>
   </button>
+);
+
+// Centered Upload Component
+const CenteredUpload = ({ onUploadClick, loading, progress, error, studentMode }) => (
+  <div className="min-h-screen flex items-center justify-center p-6 bg-gray-900">
+    <div className="max-w-2xl w-full">
+      {/* Upload Card */}
+      <div className="bg-gray-800 rounded-xl p-10 border-2 border-dashed border-gray-600 hover:border-primary transition-all">
+        <div className="flex flex-col items-center space-y-6">
+          
+          {/* Icon */}
+          <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center">
+            <Upload className="text-primary" size={40} />
+          </div>
+          
+          {/* Title */}
+          <div className="text-center">
+            <h3 className="text-3xl font-bold text-white mb-2">No PCAP File Loaded</h3>
+            <p className="text-gray-400">
+              Upload a PCAP file to begin network analysis
+            </p>
+          </div>
+          
+          {/* Upload Button */}
+          <button
+            onClick={onUploadClick}
+            disabled={loading}
+            className="px-8 py-4 bg-primary hover:bg-blue-600 text-white rounded-lg font-semibold text-lg cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3"
+          >
+            <Upload size={24} />
+            {loading ? 'Processing PCAP...' : 'Upload PCAP File'}
+          </button>
+          
+          {/* Progress Bar */}
+          {loading && progress > 0 && (
+            <div className="w-full space-y-2">
+              <div className="w-full bg-gray-700 rounded-full h-3">
+                <div 
+                  className="bg-gradient-to-r from-primary to-secondary h-3 rounded-full transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <p className="text-sm text-gray-400 text-center">{progress.toFixed(1)}% Complete</p>
+            </div>
+          )}
+          
+          {/* Error Message */}
+          {error && (
+            <div className="w-full text-sm text-red-400 bg-red-400/10 p-4 rounded-lg border border-red-400/30">
+              <strong>Error:</strong> {error}
+            </div>
+          )}
+          
+          {/* Supported Formats */}
+          <div className="text-center space-y-2">
+            <p className="text-xs text-gray-500">
+              Supported formats: .pcap, .pcapng
+            </p>
+            <p className="text-xs text-gray-500">
+              Maximum file size: 100 MB
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      {/* Student Tip */}
+      {studentMode && (
+        <div className="mt-6 text-sm text-secondary bg-secondary/10 p-4 rounded-lg border border-secondary/30 text-center">
+          <strong>💡 Student Tip:</strong> PCAP files contain captured network traffic from tools like Wireshark. Upload one to see live traffic analysis!
+        </div>
+      )}
+      
+      {/* Features Preview */}
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-gray-800/50 p-4 rounded-lg text-center">
+          <div className="text-primary text-2xl mb-2">📊</div>
+          <div className="text-white font-semibold mb-1">Dashboard</div>
+          <div className="text-xs text-gray-400">Visualize traffic patterns</div>
+        </div>
+        <div className="bg-gray-800/50 p-4 rounded-lg text-center">
+          <div className="text-primary text-2xl mb-2">🤖</div>
+          <div className="text-white font-semibold mb-1">AI Analysis</div>
+          <div className="text-xs text-gray-400">Instant threat detection</div>
+        </div>
+        <div className="bg-gray-800/50 p-4 rounded-lg text-center">
+          <div className="text-primary text-2xl mb-2">🎮</div>
+          <div className="text-white font-semibold mb-1">Kahoot Games</div>
+          <div className="text-xs text-gray-400">Learn through gameplay</div>
+        </div>
+      </div>
+    </div>
+  </div>
 );
 
 export default function App() {
@@ -483,6 +575,13 @@ export default function App() {
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
   }
 
+  // Determine if we should show the centered upload screen
+  const shouldShowCenteredUpload = !pcapData && 
+    (currentView === 'dashboard' || 
+     currentView === 'inspector' || 
+     currentView === '3d' || 
+     currentView === 'flow');
+
   return (
     <div className="flex h-screen overflow-hidden bg-bg text-textMain font-sans">
       <input ref={fileInputRef} type="file" accept=".pcap,.pcapng" onChange={handleFileUpload} className="hidden" />
@@ -551,18 +650,6 @@ export default function App() {
                 active={currentView === 'create-kahoot'} 
                 onClick={() => setCurrentView('create-kahoot')} 
               />
-              <SidebarItem 
-                icon={FileUp} 
-                label="Create Challenge" 
-                active={currentView === 'create-challenge'} 
-                onClick={() => setCurrentView('create-challenge')} 
-              />
-              <SidebarItem 
-                icon={BarChart3} 
-                label="Student Analytics" 
-                active={currentView === 'analytics'} 
-                onClick={() => setCurrentView('analytics')} 
-              />
             </>
           )}
         </nav>
@@ -608,31 +695,29 @@ export default function App() {
           </button>
         </div>
 
-        <div className="p-4">
-          <button onClick={handleUploadClick} disabled={loading} className="w-full bg-primary hover:bg-blue-600 text-white p-3 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-            <Upload size={18} />
-            {loading ? 'Processing...' : 'Upload PCAP'}
-          </button>
-          
-          {loading && progress > 0 && (
-            <div className="mt-2 space-y-1">
-              <div className="w-full bg-bg rounded-full h-2">
-                <div 
-                  className="bg-gradient-to-r from-primary to-secondary h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <p className="text-xs text-textMuted text-center">{progress.toFixed(1)}%</p>
-            </div>
-          )}
-          
-          {error && <div className="mt-2 text-xs text-red-400 bg-red-400/10 p-2 rounded">{error}</div>}
-          {pcapData && !error && !loading && <div className="mt-2 text-xs text-green-400 bg-green-400/10 p-2 rounded">Loaded {pcapData.summary?.total_packets || 0} packets</div>}
-        </div>
+        {/* Only show sidebar upload button if PCAP is loaded */}
+        {pcapData && (
+          <div className="p-4">
+            <button onClick={handleUploadClick} disabled={loading} className="w-full bg-primary hover:bg-blue-600 text-white p-3 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              <Upload size={18} />
+              {loading ? 'Processing...' : 'Upload New PCAP'}
+            </button>
+            
+            {pcapData && !error && !loading && <div className="mt-2 text-xs text-green-400 bg-green-400/10 p-2 rounded">Loaded {pcapData.summary?.total_packets || 0} packets</div>}
+          </div>
+        )}
       </aside>
 
       <main className="flex-1 overflow-auto relative">
-        {currentView === 'profile' ? (
+        {shouldShowCenteredUpload ? (
+          <CenteredUpload 
+            onUploadClick={handleUploadClick}
+            loading={loading}
+            progress={progress}
+            error={error}
+            studentMode={studentMode}
+          />
+        ) : currentView === 'profile' ? (
           <ProfilePage />
         ) : currentView === 'dashboard' ? (
           <DashboardView studentMode={studentMode} pcapData={pcapData} />
@@ -718,16 +803,6 @@ export default function App() {
               setKahootRoom(null);
             }}
           />
-        ) : currentView === 'create-challenge' ? (
-          <div style={{ padding: '2rem', color: 'white', textAlign: 'center' }}>
-            <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>📦 Create Challenge</h2>
-            <p style={{ color: '#888' }}>Coming soon!</p>
-          </div>
-        ) : currentView === 'analytics' ? (
-          <div style={{ padding: '2rem', color: 'white', textAlign: 'center' }}>
-            <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>📊 Student Analytics</h2>
-            <p style={{ color: '#888' }}>Coming soon!</p>
-          </div>
         ) : (
           <FlowAnalysisView studentMode={studentMode} pcapData={pcapData} />
         )}
