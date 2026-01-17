@@ -1,7 +1,7 @@
-// src/components/AuthPage.jsx (WITH AUTO-REDIRECT AFTER SIGNUP)
+// src/components/AuthPage.jsx (WITH REAL-TIME VALIDATION FEEDBACK)
 
-import React, { useState } from 'react';
-import { Network, GraduationCap, Users, AlertCircle, Mail, Lock, User as UserIcon, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Network, GraduationCap, Users, AlertCircle, Mail, Lock, User as UserIcon, CheckCircle, Eye, EyeOff, Check, X } from 'lucide-react';
 import { userService } from '../services/userService';
 
 const AuthPage = ({ onAuthSuccess }) => {
@@ -16,6 +16,72 @@ const AuthPage = ({ onAuthSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [signupSuccess, setSignupSuccess] = useState(false);
+
+  // Real-time validation states
+  const [usernameErrors, setUsernameErrors] = useState([]);
+  const [emailErrors, setEmailErrors] = useState([]);
+
+  // Username validation with real-time feedback
+  const validateUsername = (value) => {
+    const errors = [];
+    
+    if (!value) {
+      errors.push('Username is required');
+    } else {
+      if (value.length < 3) {
+        errors.push('At least 3 characters');
+      }
+      if (value.length > 20) {
+        errors.push('Maximum 20 characters');
+      }
+      if (!/^[a-zA-Z0-9_]*$/.test(value)) {
+        errors.push('Only letters, numbers, and underscores');
+      }
+      if (/\s/.test(value)) {
+        errors.push('No spaces allowed');
+      }
+    }
+    
+    return errors;
+  };
+
+  // Email validation with real-time feedback
+  const validateEmail = (value) => {
+    const errors = [];
+    
+    if (!value) {
+      errors.push('Email is required');
+    } else {
+      // Remove dangerous characters and validate
+      const cleaned = value.replace(/[<>'"]/g, '');
+      if (cleaned !== value) {
+        errors.push('Contains invalid characters');
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+        errors.push('Invalid email format');
+      }
+    }
+    
+    return errors;
+  };
+
+  // Update validation errors when username changes
+  useEffect(() => {
+    if (username) {
+      setUsernameErrors(validateUsername(username));
+    } else {
+      setUsernameErrors([]);
+    }
+  }, [username]);
+
+  // Update validation errors when email changes
+  useEffect(() => {
+    if (email && isSignup) {
+      setEmailErrors(validateEmail(email));
+    } else {
+      setEmailErrors([]);
+    }
+  }, [email, isSignup]);
 
   // Password validation function
   const validatePassword = (pass) => {
@@ -46,13 +112,13 @@ const AuthPage = ({ onAuthSuccess }) => {
 
   // Check if form is valid for submission
   const isFormValid = () => {
-    if (!username.trim() || username.trim().length < 3 || username.trim().length > 20 || !/^[a-zA-Z0-9_]+$/.test(username.trim())) {
-      return false;
-    }
+    if (usernameErrors.length > 0) return false;
+    if (!username) return false;
     
     if (isSignup) {
       if (!selectedRole) return false;
-      if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return false;
+      if (emailErrors.length > 0) return false;
+      if (!email) return false;
       if (!password || passwordValidation.strength < 3) return false;
       if (password !== confirmPassword) return false;
     } else {
@@ -65,24 +131,12 @@ const AuthPage = ({ onAuthSuccess }) => {
   const handleAuth = async () => {
     setError(null);
 
-    // Validation
-    if (!username.trim()) {
-      setError('Please enter a username');
-      return;
-    }
+    // Sanitize username - remove any HTML tags and dangerous characters
+    const sanitizedUsername = username.trim().replace(/[^a-zA-Z0-9_]/g, '');
 
-    if (username.trim().length < 3) {
-      setError('Username must be at least 3 characters');
-      return;
-    }
-
-    if (username.trim().length > 20) {
-      setError('Username must be less than 20 characters');
-      return;
-    }
-
-    if (!/^[a-zA-Z0-9_]+$/.test(username.trim())) {
-      setError('Username can only contain letters, numbers, and underscores');
+    // Final validation
+    if (!sanitizedUsername || sanitizedUsername.length < 3 || sanitizedUsername.length > 20) {
+      setError('Invalid username. Please follow the requirements.');
       return;
     }
 
@@ -91,13 +145,11 @@ const AuthPage = ({ onAuthSuccess }) => {
       return;
     }
 
-    if (isSignup && !email.trim()) {
-      setError('Please enter an email');
-      return;
-    }
+    // Sanitize email
+    const sanitizedEmail = email.trim().toLowerCase().replace(/[<>'"]/g, '');
 
-    if (isSignup && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setError('Please enter a valid email');
+    if (isSignup && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sanitizedEmail)) {
+      setError('Invalid email address');
       return;
     }
 
@@ -125,8 +177,8 @@ const AuthPage = ({ onAuthSuccess }) => {
 
     try {
       if (isSignup) {
-        // Sign up
-        await userService.signUp(email.trim(), password, username.trim(), selectedRole);
+        // Sign up - use sanitized values
+        await userService.signUp(sanitizedEmail, password, sanitizedUsername, selectedRole);
         console.log('✅ Signup successful');
         
         // Logout the user immediately after signup
@@ -149,8 +201,8 @@ const AuthPage = ({ onAuthSuccess }) => {
         }, 2000);
         
       } else {
-        // Login
-        await userService.login(username.trim(), password);
+        // Login - use sanitized username
+        await userService.login(sanitizedUsername, password);
         console.log('✅ Login successful');
         
         // Success - callback to parent
@@ -171,6 +223,8 @@ const AuthPage = ({ onAuthSuccess }) => {
         setError('Invalid username or password');
       } else if (err.message.includes('invalid-credential')) {
         setError('Invalid username or password');
+      } else if (err.message.includes('Username already taken')) {
+        setError('Username already taken. Please choose another.');
       } else {
         setError(err.message || 'Authentication failed. Please try again.');
       }
@@ -417,7 +471,7 @@ const AuthPage = ({ onAuthSuccess }) => {
           </div>
         )}
 
-        {/* Username Input */}
+        {/* Username Input with Real-Time Validation */}
         <div style={{ marginBottom: '1rem' }}>
           <label style={{
             display: 'block',
@@ -437,25 +491,97 @@ const AuthPage = ({ onAuthSuccess }) => {
               setUsername(e.target.value);
               setError(null);
             }}
-            placeholder="Enter username"
+            placeholder="e.g., cool_user_123"
             maxLength={20}
             style={{
               width: '100%',
               fontSize: '1rem',
               padding: '0.75rem',
               background: 'rgba(255, 255, 255, 0.05)',
-              border: '2px solid rgba(255, 255, 255, 0.1)',
+              border: usernameErrors.length > 0 && username ? 
+                '2px solid rgba(255, 107, 107, 0.5)' : 
+                '2px solid rgba(255, 255, 255, 0.1)',
               borderRadius: '8px',
               color: 'white',
               outline: 'none',
               transition: 'border-color 0.3s ease'
             }}
-            onFocus={(e) => e.target.style.borderColor = '#667eea'}
-            onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)'}
+            onFocus={(e) => {
+              if (usernameErrors.length === 0 || !username) {
+                e.target.style.borderColor = '#667eea';
+              }
+            }}
+            onBlur={(e) => {
+              if (usernameErrors.length > 0 && username) {
+                e.target.style.borderColor = 'rgba(255, 107, 107, 0.5)';
+              } else {
+                e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+              }
+            }}
           />
+          
+          {/* Username Requirements - Always Visible */}
+          <div style={{
+            marginTop: '0.5rem',
+            fontSize: '0.75rem',
+            color: '#888'
+          }}>
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: '1fr 1fr',
+              gap: '0.25rem',
+              marginBottom: '0.25rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                {username.length >= 3 ? 
+                  <Check size={12} color="#4CAF50" /> : 
+                  <X size={12} color={username ? "#FF6B6B" : "#888"} />
+                }
+                <span style={{ 
+                  color: username.length >= 3 ? '#4CAF50' : 
+                         username ? '#FF6B6B' : '#888' 
+                }}>
+                  3-20 characters
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                {/^[a-zA-Z0-9_]*$/.test(username) && username ? 
+                  <Check size={12} color="#4CAF50" /> : 
+                  <X size={12} color={username && !/^[a-zA-Z0-9_]*$/.test(username) ? "#FF6B6B" : "#888"} />
+                }
+                <span style={{ 
+                  color: /^[a-zA-Z0-9_]*$/.test(username) && username ? '#4CAF50' : 
+                         username && !/^[a-zA-Z0-9_]*$/.test(username) ? '#FF6B6B' : '#888' 
+                }}>
+                  Letters, numbers, _
+                </span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              {!/\s/.test(username) ? 
+                <Check size={12} color="#4CAF50" /> : 
+                <X size={12} color="#FF6B6B" />
+              }
+              <span style={{ color: !/\s/.test(username) ? '#4CAF50' : '#FF6B6B' }}>
+                No spaces
+              </span>
+            </div>
+          </div>
+
+          {/* Character counter */}
+          {username && (
+            <div style={{
+              marginTop: '0.25rem',
+              fontSize: '0.7rem',
+              color: username.length > 20 ? '#FF6B6B' : '#888',
+              textAlign: 'right'
+            }}>
+              {username.length}/20 characters
+            </div>
+          )}
         </div>
 
-        {/* Email Input (Sign Up Only) */}
+        {/* Email Input (Sign Up Only) with Real-Time Validation */}
         {isSignup && (
           <div style={{ marginBottom: '1rem' }}>
             <label style={{
@@ -476,21 +602,63 @@ const AuthPage = ({ onAuthSuccess }) => {
                 setEmail(e.target.value);
                 setError(null);
               }}
-              placeholder="Enter email"
+              placeholder="your.email@example.com"
               style={{
                 width: '100%',
                 fontSize: '1rem',
                 padding: '0.75rem',
                 background: 'rgba(255, 255, 255, 0.05)',
-                border: '2px solid rgba(255, 255, 255, 0.1)',
+                border: emailErrors.length > 0 && email ? 
+                  '2px solid rgba(255, 107, 107, 0.5)' : 
+                  '2px solid rgba(255, 255, 255, 0.1)',
                 borderRadius: '8px',
                 color: 'white',
                 outline: 'none',
                 transition: 'border-color 0.3s ease'
               }}
-              onFocus={(e) => e.target.style.borderColor = '#667eea'}
-              onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)'}
+              onFocus={(e) => {
+                if (emailErrors.length === 0 || !email) {
+                  e.target.style.borderColor = '#667eea';
+                }
+              }}
+              onBlur={(e) => {
+                if (emailErrors.length > 0 && email) {
+                  e.target.style.borderColor = 'rgba(255, 107, 107, 0.5)';
+                } else {
+                  e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                }
+              }}
             />
+            
+            {/* Email validation feedback */}
+            {email && emailErrors.length === 0 && (
+              <div style={{
+                marginTop: '0.5rem',
+                fontSize: '0.75rem',
+                color: '#4CAF50',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem'
+              }}>
+                <Check size={12} />
+                <span>Valid email</span>
+              </div>
+            )}
+            
+            {email && emailErrors.length > 0 && (
+              <div style={{
+                marginTop: '0.5rem',
+                fontSize: '0.75rem',
+                color: '#FF6B6B'
+              }}>
+                {emailErrors.map((err, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <X size={12} />
+                    <span>{err}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -531,7 +699,7 @@ const AuthPage = ({ onAuthSuccess }) => {
               onFocus={(e) => e.target.style.borderColor = '#667eea'}
               onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)'}
               onKeyPress={(e) => {
-                if (e.key === 'Enter' && !isSignup) {
+                if (e.key === 'Enter' && !isSignup && isFormValid()) {
                   handleAuth();
                 }
               }}
@@ -572,6 +740,7 @@ const AuthPage = ({ onAuthSuccess }) => {
                 <span style={{ fontSize: '0.8rem', color: '#888' }}>Password Strength:</span>
                 <span style={{
                   fontSize: '0.8rem',
+                  fontWeight: 'bold',
                   color: passwordValidation.strength >= 4 ? '#4CAF50' : 
                          passwordValidation.strength >= 3 ? '#FFB84D' : 
                          passwordValidation.strength >= 2 ? '#FF6B6B' : '#888'
@@ -579,7 +748,8 @@ const AuthPage = ({ onAuthSuccess }) => {
                   {passwordValidation.strength === 0 ? 'Very Weak' :
                    passwordValidation.strength === 1 ? 'Weak' :
                    passwordValidation.strength === 2 ? 'Fair' :
-                   passwordValidation.strength === 3 ? 'Good' : 'Strong'}
+                   passwordValidation.strength === 3 ? 'Good' : 
+                   passwordValidation.strength === 4 ? 'Strong' : 'Very Strong'}
                 </span>
               </div>
               
@@ -598,7 +768,7 @@ const AuthPage = ({ onAuthSuccess }) => {
                       backgroundColor: passwordValidation.strength >= level ? 
                         (level <= 2 ? '#FF6B6B' : 
                          level === 3 ? '#FFB84D' : 
-                         level === 4 ? '#4CAF50' : '#4CAF50') : 
+                         '#4CAF50') : 
                         'rgba(255, 255, 255, 0.1)',
                       borderRadius: '2px',
                       transition: 'all 0.3s ease'
@@ -616,49 +786,64 @@ const AuthPage = ({ onAuthSuccess }) => {
                 gap: '0.25rem 1rem'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <div style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    backgroundColor: passwordValidation.hasMinLength ? '#4CAF50' : '#FF6B6B'
-                  }} />
-                  <span>At least 6 characters</span>
+                  {passwordValidation.hasMinLength ? 
+                    <Check size={12} color="#4CAF50" /> : 
+                    <X size={12} color={password ? "#FF6B6B" : "#888"} />
+                  }
+                  <span style={{ 
+                    color: passwordValidation.hasMinLength ? '#4CAF50' : 
+                           password ? '#FF6B6B' : '#888' 
+                  }}>
+                    At least 6 characters
+                  </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <div style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    backgroundColor: passwordValidation.hasUpperCase ? '#4CAF50' : '#FF6B6B'
-                  }} />
-                  <span>Uppercase letter</span>
+                  {passwordValidation.hasUpperCase ? 
+                    <Check size={12} color="#4CAF50" /> : 
+                    <X size={12} color={password ? "#FF6B6B" : "#888"} />
+                  }
+                  <span style={{ 
+                    color: passwordValidation.hasUpperCase ? '#4CAF50' : 
+                           password ? '#FF6B6B' : '#888' 
+                  }}>
+                    Uppercase letter
+                  </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <div style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    backgroundColor: passwordValidation.hasLowerCase ? '#4CAF50' : '#FF6B6B'
-                  }} />
-                  <span>Lowercase letter</span>
+                  {passwordValidation.hasLowerCase ? 
+                    <Check size={12} color="#4CAF50" /> : 
+                    <X size={12} color={password ? "#FF6B6B" : "#888"} />
+                  }
+                  <span style={{ 
+                    color: passwordValidation.hasLowerCase ? '#4CAF50' : 
+                           password ? '#FF6B6B' : '#888' 
+                  }}>
+                    Lowercase letter
+                  </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <div style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    backgroundColor: passwordValidation.hasNumbers ? '#4CAF50' : '#FF6B6B'
-                  }} />
-                  <span>Number</span>
+                  {passwordValidation.hasNumbers ? 
+                    <Check size={12} color="#4CAF50" /> : 
+                    <X size={12} color={password ? "#FF6B6B" : "#888"} />
+                  }
+                  <span style={{ 
+                    color: passwordValidation.hasNumbers ? '#4CAF50' : 
+                           password ? '#FF6B6B' : '#888' 
+                  }}>
+                    Number
+                  </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <div style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    backgroundColor: passwordValidation.hasSpecialChar ? '#4CAF50' : '#FF6B6B'
-                  }} />
-                  <span>Special character</span>
+                  {passwordValidation.hasSpecialChar ? 
+                    <Check size={12} color="#4CAF50" /> : 
+                    <X size={12} color={password ? "#FF6B6B" : "#888"} />
+                  }
+                  <span style={{ 
+                    color: passwordValidation.hasSpecialChar ? '#4CAF50' : 
+                           password ? '#FF6B6B' : '#888' 
+                  }}>
+                    Special character
+                  </span>
                 </div>
               </div>
             </div>
@@ -694,7 +879,8 @@ const AuthPage = ({ onAuthSuccess }) => {
                   padding: '0.75rem',
                   background: 'rgba(255, 255, 255, 0.05)',
                   border: password && confirmPassword && password !== confirmPassword ? 
-                    '2px solid #FF6B6B' : '2px solid rgba(255, 255, 255, 0.1)',
+                    '2px solid rgba(255, 107, 107, 0.5)' : 
+                    '2px solid rgba(255, 255, 255, 0.1)',
                   borderRadius: '8px',
                   color: 'white',
                   outline: 'none',
@@ -704,13 +890,13 @@ const AuthPage = ({ onAuthSuccess }) => {
                 onFocus={(e) => e.target.style.borderColor = '#667eea'}
                 onBlur={(e) => {
                   if (password && confirmPassword && password !== confirmPassword) {
-                    e.target.style.borderColor = '#FF6B6B';
+                    e.target.style.borderColor = 'rgba(255, 107, 107, 0.5)';
                   } else {
                     e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
                   }
                 }}
                 onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === 'Enter' && isFormValid()) {
                     handleAuth();
                   }
                 }}
@@ -751,12 +937,12 @@ const AuthPage = ({ onAuthSuccess }) => {
               }}>
                 {password === confirmPassword ? (
                   <>
-                    <CheckCircle size={14} />
+                    <Check size={14} />
                     <span>Passwords match</span>
                   </>
                 ) : (
                   <>
-                    <AlertCircle size={14} />
+                    <X size={14} />
                     <span>Passwords do not match</span>
                   </>
                 )}
@@ -816,6 +1002,29 @@ const AuthPage = ({ onAuthSuccess }) => {
           )}
         </button>
 
+        {/* Why button is disabled - helper text */}
+        {!isFormValid() && !loading && (
+          <div style={{
+            fontSize: '0.75rem',
+            color: '#FFB84D',
+            textAlign: 'center',
+            marginBottom: '1rem',
+            padding: '0.5rem',
+            background: 'rgba(255, 184, 77, 0.1)',
+            borderRadius: '6px'
+          }}>
+            {!username ? '⚠️ Please enter a username' :
+             usernameErrors.length > 0 ? '⚠️ Fix username requirements above' :
+             isSignup && !selectedRole ? '⚠️ Please select your role' :
+             isSignup && !email ? '⚠️ Please enter your email' :
+             isSignup && emailErrors.length > 0 ? '⚠️ Fix email errors above' :
+             isSignup && (!password || passwordValidation.strength < 3) ? '⚠️ Password needs to be stronger' :
+             isSignup && password !== confirmPassword ? '⚠️ Passwords must match' :
+             !password ? '⚠️ Please enter your password' :
+             'Complete all fields to continue'}
+          </div>
+        )}
+
         {/* Toggle Sign Up / Login */}
         <div style={{ textAlign: 'center' }}>
           <button
@@ -828,6 +1037,8 @@ const AuthPage = ({ onAuthSuccess }) => {
               setConfirmPassword('');
               setShowPassword(false);
               setShowConfirmPassword(false);
+              setUsernameErrors([]);
+              setEmailErrors([]);
             }}
             style={{
               background: 'none',

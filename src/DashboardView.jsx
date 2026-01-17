@@ -21,16 +21,25 @@ const CustomTooltip = ({ active, payload, xAxis, yAxis }) => {
   const data = payload[0].payload;
   const formatValue = (value, axis) => {
     if (axis === 'time') return value?.toFixed(2) + 's';
-    if (axis === 'packet_size' || axis === 'payload_size') return value + ' bytes';
-    if (axis === 'window_size') return value + ' bytes';
+    if (axis === 'packet_size' || axis === 'payload_size') return value?.toLocaleString() + ' bytes';
+    if (axis === 'window_size') return value?.toLocaleString() + ' bytes';
+    if (axis === 'src_port' || axis === 'dst_port') return value;
+    if (axis === 'ttl') return value;
+    if (axis === 'seq_num') return value?.toLocaleString();
     return value;
   };
   
   return (
     <div className="bg-surface border border-white/10 rounded p-2 shadow-lg">
-      <p className="text-xs text-primary font-semibold">{payload[0].name}</p>
-      <p className="text-xs text-textMuted">X: {formatValue(data.x, xAxis)}</p>
-      <p className="text-xs text-textMuted">Y: {formatValue(data.y, yAxis)}</p>
+      <p className="text-xs text-primary font-semibold mb-1">{payload[0].name}</p>
+      <p className="text-xs text-textMuted">X ({xAxis}): {formatValue(data.x, xAxis)}</p>
+      <p className="text-xs text-textMuted">Y ({yAxis}): {formatValue(data.y, yAxis)}</p>
+      {data.packet && (
+        <div className="text-xs text-gray-400 mt-1 pt-1 border-t border-white/10">
+          <p>Time: {data.packet.time?.toFixed(3)}s</p>
+          <p>{data.packet.src_ip} → {data.packet.dst_ip}</p>
+        </div>
+      )}
     </div>
   );
 };
@@ -42,6 +51,7 @@ export default function DashboardView({ studentMode, pcapData }) {
   const [xAxis, setXAxis] = useState('time');
   const [yAxis, setYAxis] = useState('packet_size');
   const [timelineYAxis, setTimelineYAxis] = useState('packet_size');
+  const [scatterSampleSize, setScatterSampleSize] = useState(5000); // Default sample size
 
   console.log('DashboardView render - pcapData:', pcapData ? 'exists' : 'null');
   console.log('Current graphType:', graphType);
@@ -107,15 +117,59 @@ export default function DashboardView({ studentMode, pcapData }) {
     try {
       const protocols = [...new Set(filteredPackets.map(p => p.protocol))];
       
-      // 2D Scatter
+      // 2D Scatter - Optimized with sampling for large datasets
+      const maxTime = Math.max(...filteredPackets.map(p => p.time || 0));
+      const timeRange = maxTime > 0 ? maxTime : 1;
+      
+      // Smart sampling based on dataset size
+      let sampledPackets = filteredPackets;
+      let usedSampleSize = scatterSampleSize;
+      
+      if (filteredPackets.length > scatterSampleSize) {
+        // Stratified sampling by protocol to maintain distribution
+        const protocolPackets = {};
+        filteredPackets.forEach(p => {
+          if (!protocolPackets[p.protocol]) protocolPackets[p.protocol] = [];
+          protocolPackets[p.protocol].push(p);
+        });
+        
+        sampledPackets = [];
+        Object.entries(protocolPackets).forEach(([protocol, packets]) => {
+          const sampleSize = Math.ceil((packets.length / filteredPackets.length) * scatterSampleSize);
+          const step = Math.max(1, Math.floor(packets.length / sampleSize));
+          
+          for (let i = 0; i < packets.length; i += step) {
+            if (sampledPackets.length < scatterSampleSize) {
+              sampledPackets.push(packets[i]);
+            }
+          }
+        });
+        
+        console.log(`Sampled ${sampledPackets.length} from ${filteredPackets.length} packets`);
+      }
+      
       const scatterData = protocols.map(protocol => ({
         protocol,
-        data: filteredPackets.filter(p => p.protocol === protocol).map(p => ({ 
-          x: p[xAxis] || 0, 
-          y: p[yAxis] || 0, 
-          packet: p 
-        }))
+        data: sampledPackets
+          .filter(p => p.protocol === protocol)
+          .map(p => {
+            const xValue = p[xAxis] !== undefined && p[xAxis] !== null ? p[xAxis] : 0;
+            const yValue = p[yAxis] !== undefined && p[yAxis] !== null ? p[yAxis] : 0;
+            
+            return { 
+              x: xValue, 
+              y: yValue, 
+              packet: p 
+            };
+          })
       }));
+      
+      // Calculate fixed ticks for time axis (matching timeline)
+      let scatterFixedTicks = null;
+      if (xAxis === 'time' || yAxis === 'time') {
+        const numTicks = 11; // 0%, 10%, 20%, ..., 100%
+        scatterFixedTicks = Array.from({ length: numTicks }, (_, i) => (i / (numTicks - 1)) * timeRange);
+      }
 
       // Network Flow
       const nodeSet = new Set();
@@ -135,8 +189,6 @@ export default function DashboardView({ studentMode, pcapData }) {
       };
 
       // Timeline - Fixed with 10% increments
-      const maxTime = Math.max(...filteredPackets.map(p => p.time || 0));
-      const timeRange = maxTime > 0 ? maxTime : 1;
       const numBuckets = 10;
       const bucketSize = timeRange / numBuckets;
       
@@ -255,15 +307,16 @@ export default function DashboardView({ studentMode, pcapData }) {
       const geoFlowData = Object.entries(geoRanges).map(([location, count]) => ({ location, count }));
 
       console.log('visualizationData computed successfully');
-      console.log('Timeline data:', {
-        timeRange,
-        bucketSize,
-        fixedTicks,
-        timelineDataLength: timelineData.length
-      });
+      console.log('Scatter data points:', sampledPackets.length, 'from', filteredPackets.length);
       
       return {
         scatterData,
+        scatterMetadata: {
+          timeRange,
+          scatterFixedTicks,
+          sampledCount: sampledPackets.length,
+          totalCount: filteredPackets.length
+        },
         networkFlowData,
         timelineData,
         protocols,
@@ -283,7 +336,7 @@ export default function DashboardView({ studentMode, pcapData }) {
       console.error('Error computing visualizationData:', err);
       return {};
     }
-  }, [filteredPackets, processedData, xAxis, yAxis, timelineYAxis]);
+  }, [filteredPackets, processedData, xAxis, yAxis, timelineYAxis, scatterSampleSize]);
 
   console.log('visualizationData keys:', Object.keys(visualizationData));
 
@@ -313,9 +366,9 @@ export default function DashboardView({ studentMode, pcapData }) {
       src_port: 'Source Port',
       dst_port: 'Destination Port', 
       ttl: 'TTL', 
-      window_size: 'Window Size',
+      window_size: 'Window Size (bytes)',
       seq_num: 'Sequence Number', 
-      payload_size: 'Payload Size'
+      payload_size: 'Payload Size (bytes)'
     };
     return labels[axis] || axis;
   };
@@ -461,6 +514,13 @@ export default function DashboardView({ studentMode, pcapData }) {
             </div>
           )}
         </div>
+
+        {/* Sampling info for 2D scatter */}
+        {graphType === '2d-scatter' && visualizationData.scatterMetadata && visualizationData.scatterMetadata.sampledCount < visualizationData.scatterMetadata.totalCount && (
+          <div className="mt-3 p-2 bg-blue-500/10 border border-blue-500/30 rounded text-xs text-blue-300">
+            ℹ️ Displaying {visualizationData.scatterMetadata.sampledCount.toLocaleString()} of {visualizationData.scatterMetadata.totalCount.toLocaleString()} packets for performance
+          </div>
+        )}
       </div>
 
       <div className="bg-surface rounded-xl p-6 shadow-lg border border-white/5">
@@ -469,11 +529,55 @@ export default function DashboardView({ studentMode, pcapData }) {
             <ResponsiveContainer width="100%" height="100%">
               <ScatterChart>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-                <XAxis dataKey="x" name={formatAxisLabel(xAxis)} stroke="#A0A0C0" label={{ value: formatAxisLabel(xAxis), position: 'insideBottom', offset: -5 }} tickFormatter={(value) => xAxis === 'time' ? value.toFixed(2) : value} />
-                <YAxis dataKey="y" name={formatAxisLabel(yAxis)} stroke="#A0A0C0" label={{ value: formatAxisLabel(yAxis), angle: -90, position: 'insideLeft' }} tickFormatter={(value) => yAxis === 'time' ? value.toFixed(2) : value} />
+                <XAxis 
+                  dataKey="x" 
+                  name={formatAxisLabel(xAxis)} 
+                  stroke="#A0A0C0" 
+                  label={{ value: formatAxisLabel(xAxis), position: 'insideBottom', offset: -5 }} 
+                  type="number"
+                  domain={xAxis === 'time' && visualizationData.scatterMetadata?.timeRange ? 
+                    [0, visualizationData.scatterMetadata.timeRange] : 
+                    ['auto', 'auto']}
+                  ticks={xAxis === 'time' && visualizationData.scatterMetadata?.scatterFixedTicks ? 
+                    visualizationData.scatterMetadata.scatterFixedTicks : 
+                    undefined}
+                  tickFormatter={(value) => {
+                    if (xAxis === 'time') return value.toFixed(2) + 's';
+                    if (xAxis === 'packet_size' || xAxis === 'payload_size' || xAxis === 'window_size') {
+                      return value >= 1000 ? (value/1000).toFixed(1) + 'K' : value;
+                    }
+                    return value;
+                  }}
+                />
+                <YAxis 
+                  dataKey="y" 
+                  name={formatAxisLabel(yAxis)} 
+                  stroke="#A0A0C0" 
+                  label={{ value: formatAxisLabel(yAxis), angle: -90, position: 'insideLeft' }} 
+                  type="number"
+                  domain={yAxis === 'time' && visualizationData.scatterMetadata?.timeRange ? 
+                    [0, visualizationData.scatterMetadata.timeRange] : 
+                    ['auto', 'auto']}
+                  ticks={yAxis === 'time' && visualizationData.scatterMetadata?.scatterFixedTicks ? 
+                    visualizationData.scatterMetadata.scatterFixedTicks : 
+                    undefined}
+                  tickFormatter={(value) => {
+                    if (yAxis === 'time') return value.toFixed(2) + 's';
+                    if (yAxis === 'packet_size' || yAxis === 'payload_size' || yAxis === 'window_size') {
+                      return value >= 1000 ? (value/1000).toFixed(1) + 'K' : value;
+                    }
+                    return value;
+                  }}
+                />
                 <Tooltip content={<CustomTooltip xAxis={xAxis} yAxis={yAxis} />} />
                 {visualizationData.scatterData.map(item => (
-                  <Scatter key={item.protocol} name={item.protocol} data={item.data} fill={protocolColors[item.protocol] || '#888888'} />
+                  <Scatter 
+                    key={item.protocol} 
+                    name={item.protocol} 
+                    data={item.data} 
+                    fill={protocolColors[item.protocol] || '#888888'}
+                    fillOpacity={0.6}
+                  />
                 ))}
               </ScatterChart>
             </ResponsiveContainer>
