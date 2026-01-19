@@ -1,7 +1,7 @@
-// src/components/KahootCreator.jsx (WITH SAVED GAMES)
+// src/components/KahootCreator.jsx - COMPLETE WITH RENAME
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Plus, Trash2, Network, Eye, EyeOff, Upload, FileUp, Save, BookOpen, Calendar } from 'lucide-react';
+import { Play, Plus, Trash2, Network, Eye, EyeOff, Upload, FileUp, Save, BookOpen, Calendar, AlertCircle, CheckCircle, Edit2, Check, X } from 'lucide-react';
 import { kahootService } from '../services/kahootService';
 import { attackScenarios } from '../data/attackScenarios';
 
@@ -14,6 +14,16 @@ const KahootCreator = ({ user, onGameCreated }) => {
   const [customMode, setCustomMode] = useState(false);
   const [showSavedGames, setShowSavedGames] = useState(false);
   const [savedGames, setSavedGames] = useState([]);
+  
+  // Error handling states
+  const [error, setError] = useState(null);
+  const [saveStatus, setSaveStatus] = useState(null);
+  const [validationErrors, setValidationErrors] = useState([]);
+  
+  // ⭐ NEW: Rename states
+  const [renamingGameId, setRenamingGameId] = useState(null);
+  const [newGameName, setNewGameName] = useState('');
+  const [renameError, setRenameError] = useState(null);
   
   // PCAP state
   const [pcapData, setPcapData] = useState(null);
@@ -30,7 +40,6 @@ const KahootCreator = ({ user, onGameCreated }) => {
 
   const pcapFileInputRef = useRef(null);
 
-  // Load saved games on mount
   useEffect(() => {
     loadSavedGames();
   }, [user]);
@@ -39,14 +48,16 @@ const KahootCreator = ({ user, onGameCreated }) => {
     if (!user) return;
     
     try {
+      setError(null);
       const games = await kahootService.getSavedGames(user.uid);
       setSavedGames(games);
+      console.log('✅ Loaded saved games:', games.length);
     } catch (error) {
       console.error('Error loading saved games:', error);
+      setError(`Failed to load saved games: ${error.message}`);
     }
   };
 
-  // Quick PCAP templates matching attack scenarios
   const pcapTemplates = {
     'port-scan': [
       { src_ip: '192.168.1.100', dst_ip: '10.0.0.5', src_port: '50001', dst_port: '22', protocol: 'TCP', flags: ['SYN'], payload: '' },
@@ -73,8 +84,9 @@ const KahootCreator = ({ user, onGameCreated }) => {
   const handleSelectScenario = (scenario) => {
     setSelectedScenario(scenario);
     setQuestions(scenario.questions);
+    setError(null);
+    setValidationErrors([]);
     
-    // Auto-load PCAP template if available
     if (pcapTemplates[scenario.id]) {
       const packets = pcapTemplates[scenario.id].map((p, i) => ({
         ...p,
@@ -97,6 +109,7 @@ const KahootCreator = ({ user, onGameCreated }) => {
           auto_generated: true
         }
       });
+      console.log('✅ Auto-loaded PCAP template:', scenario.id, packets.length, 'packets');
     }
     
     setStep(2);
@@ -116,28 +129,43 @@ const KahootCreator = ({ user, onGameCreated }) => {
       }
     });
 
+    const ipFlowsArray = Object.entries(ipFlows).map(([flow, count]) => ({
+      flow: flow,
+      count: count
+    }));
+    
+    const portActivityArray = Object.entries(portActivity).map(([port, count]) => ({
+      port: port,
+      count: count
+    }));
+    
+    const protocolsArray = Object.entries(protocols).map(([protocol, count]) => ({
+      protocol: protocol,
+      count: count
+    }));
+
     return {
       total_packets: packetList.length,
-      protocols,
-      ip_flows: ipFlows,
-      port_activity: portActivity,
+      protocols: protocolsArray,
+      ip_flows: ipFlowsArray,
+      port_activity: portActivityArray,
       duration: packetList.length > 0 ? Math.max(...packetList.map(p => p.time)) : 0
     };
   };
 
-  // ========== UPLOAD PCAP FILE ==========
   const handlePcapFileUpload = (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
     if (!file.name.match(/\.(pcap|pcapng)$/i)) {
-      alert('Please upload a PCAP file (.pcap or .pcapng)');
+      setError('Please upload a PCAP file (.pcap or .pcapng)');
       return;
     }
 
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
+        setError(null);
         const arrayBuffer = e.target.result;
         const parsedPackets = parsePcapFile(arrayBuffer);
         
@@ -152,16 +180,16 @@ const KahootCreator = ({ user, onGameCreated }) => {
         };
         
         setPcapData(formattedPcap);
+        console.log(`✅ Loaded ${parsedPackets.length} packets from ${file.name}`);
         alert(`✅ Loaded ${parsedPackets.length} packets from ${file.name}`);
       } catch (err) {
         console.error('Parse error:', err);
-        alert('Error parsing PCAP file: ' + err.message);
+        setError(`Error parsing PCAP file: ${err.message}`);
       }
     };
     reader.readAsArrayBuffer(file);
   };
 
-  // ========== PARSE PCAP FILE ==========
   const parsePcapFile = (arrayBuffer) => {
     const dataView = new DataView(arrayBuffer);
     let packetList = [];
@@ -252,10 +280,11 @@ const KahootCreator = ({ user, onGameCreated }) => {
 
   const handleAddPacket = () => {
     if (!currentPacket.src_ip || !currentPacket.dst_ip) {
-      alert('Source and Destination IP are required');
+      setError('Source and Destination IP are required');
       return;
     }
 
+    setError(null);
     const newPacket = {
       ...currentPacket,
       packet_num: (pcapData?.packets.length || 0) + 1,
@@ -324,15 +353,52 @@ const KahootCreator = ({ user, onGameCreated }) => {
     });
     setQuestions([]);
     setPcapData(null);
+    setError(null);
+    setValidationErrors([]);
     setStep(2);
   };
 
-  // ========== SAVE GAME ==========
+  const validateGameData = () => {
+    const errors = [];
+
+    if (!selectedScenario || !selectedScenario.name) {
+      errors.push('❌ Scenario name is required');
+    }
+
+    if (!questions || questions.length === 0) {
+      errors.push('❌ At least one question is required');
+    }
+
+    if (!pcapData || !pcapData.packets || pcapData.packets.length === 0) {
+      errors.push('❌ PCAP data with packets is required');
+    }
+
+    questions.forEach((q, index) => {
+      if (!q.question || q.question.trim() === '') {
+        errors.push(`❌ Question ${index + 1}: Question text is required`);
+      }
+      if (!q.options || q.options.length < 2) {
+        errors.push(`❌ Question ${index + 1}: At least 2 options required`);
+      }
+      if (q.correctAnswer === undefined || q.correctAnswer === null) {
+        errors.push(`❌ Question ${index + 1}: Correct answer must be selected`);
+      }
+    });
+
+    return errors;
+  };
+
   const handleSaveGame = async () => {
-    if (!selectedScenario || !user || questions.length === 0 || !pcapData) {
-      alert('Please complete all fields before saving');
+    const errors = validateGameData();
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      setError('Please fix the validation errors before saving');
       return;
     }
+
+    setValidationErrors([]);
+    setSaveStatus('saving');
+    setError(null);
 
     try {
       const gameData = {
@@ -345,64 +411,145 @@ const KahootCreator = ({ user, onGameCreated }) => {
         createdAt: Date.now()
       };
 
-      await kahootService.saveGame(user.uid, gameData);
+      console.log('💾 Saving game data:', {
+        scenarioName: gameData.scenarioName,
+        questionsCount: gameData.questions.length,
+        packetsCount: gameData.pcapData.packets.length,
+        dataSize: JSON.stringify(gameData).length
+      });
+
+      const gameId = await kahootService.saveGame(user.uid, gameData);
+      
       await loadSavedGames();
-      alert('✅ Game saved successfully!');
+      
+      setSaveStatus('success');
+      setTimeout(() => setSaveStatus(null), 3000);
+      
+      console.log('✅ Game saved successfully:', gameId);
     } catch (error) {
-      console.error('Error saving game:', error);
-      alert('Failed to save game. Please try again.');
+      console.error('❌ Save error:', error);
+      setSaveStatus('error');
+      setError(`Failed to save game: ${error.message}`);
     }
   };
 
-  // ========== LOAD SAVED GAME ==========
   const handleLoadSavedGame = (savedGame) => {
-    setSelectedScenario({
-      id: savedGame.scenarioId,
-      name: savedGame.scenarioName,
-      description: savedGame.scenarioDescription,
-      difficulty: 'Saved'
-    });
-    setQuestions(savedGame.questions);
-    setPcapData(savedGame.pcapData);
-    setShowSavedGames(false);
-    setStep(2);
-    alert(`✅ Loaded "${savedGame.scenarioName}"!`);
+    try {
+      setError(null);
+      setValidationErrors([]);
+      
+      setSelectedScenario({
+        id: savedGame.scenarioId,
+        name: savedGame.scenarioName,
+        description: savedGame.scenarioDescription,
+        difficulty: 'Saved'
+      });
+      setQuestions(savedGame.questions);
+      setPcapData(savedGame.pcapData);
+      setShowSavedGames(false);
+      setStep(2);
+      
+      console.log('✅ Loaded saved game:', {
+        name: savedGame.scenarioName,
+        questions: savedGame.questions.length,
+        packets: savedGame.pcapData?.packets?.length
+      });
+    } catch (error) {
+      console.error('❌ Load error:', error);
+      setError(`Failed to load game: ${error.message}`);
+    }
   };
 
-  // ========== DELETE SAVED GAME ==========
   const handleDeleteSavedGame = async (gameId) => {
     if (!confirm('Are you sure you want to delete this saved game?')) return;
 
     try {
+      setError(null);
       await kahootService.deleteSavedGame(user.uid, gameId);
       await loadSavedGames();
-      alert('✅ Game deleted successfully!');
+      console.log('✅ Game deleted successfully');
     } catch (error) {
-      console.error('Error deleting game:', error);
-      alert('Failed to delete game. Please try again.');
+      console.error('❌ Delete error:', error);
+      setError(`Failed to delete game: ${error.message}`);
+    }
+  };
+
+  // ⭐ NEW: Rename handlers
+  const handleStartRename = (game) => {
+    setRenamingGameId(game.id);
+    setNewGameName(game.scenarioName);
+    setRenameError(null);
+  };
+
+  const handleCancelRename = () => {
+    setRenamingGameId(null);
+    setNewGameName('');
+    setRenameError(null);
+  };
+
+  const handleConfirmRename = async (gameId) => {
+    if (!newGameName || newGameName.trim() === '') {
+      setRenameError('Game name cannot be empty');
+      return;
+    }
+
+    if (newGameName.length > 100) {
+      setRenameError('Game name too long (max 100 characters)');
+      return;
+    }
+
+    try {
+      setRenameError(null);
+      await kahootService.renameGame(user.uid, gameId, newGameName.trim());
+      await loadSavedGames();
+      setRenamingGameId(null);
+      setNewGameName('');
+      console.log('✅ Game renamed successfully');
+    } catch (error) {
+      console.error('❌ Rename error:', error);
+      setRenameError(`Failed to rename: ${error.message}`);
     }
   };
 
   const handleCreateGame = async () => {
+    const errors = validateGameData();
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      setError('Please fix the validation errors before creating the game');
+      return;
+    }
+
     if (!selectedScenario || !user) return;
 
     setLoading(true);
+    setError(null);
+    setValidationErrors([]);
+    
     try {
+      console.log('🎮 Creating game with:', {
+        scenarioId: selectedScenario.id,
+        questionsCount: questions.length,
+        packetsCount: pcapData?.packets?.length
+      });
+
       const code = await kahootService.createGame(
         user.uid,
         selectedScenario.id,
         questions,
         pcapData
       );
+      
       setRoomCode(code);
       setStep(3);
       
       if (onGameCreated) {
         onGameCreated(code);
       }
+      
+      console.log('✅ Game created successfully:', code);
     } catch (error) {
-      console.error('Error creating game:', error);
-      alert('Failed to create game. Please try again.');
+      console.error('❌ Create game error:', error);
+      setError(`Failed to create game: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -445,10 +592,90 @@ const KahootCreator = ({ user, onGameCreated }) => {
     setPcapData(null);
     setShowPcapEditor(false);
     setShowSavedGames(false);
+    setError(null);
+    setValidationErrors([]);
+    setSaveStatus(null);
   };
 
   return (
     <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto', color: 'white' }}>
+      
+      {/* ERROR BANNER */}
+      {error && (
+        <div style={{
+          background: 'rgba(255, 107, 107, 0.2)',
+          border: '2px solid #FF6B6B',
+          borderRadius: '12px',
+          padding: '1.5rem',
+          marginBottom: '2rem',
+          display: 'flex',
+          alignItems: 'start',
+          gap: '1rem'
+        }}>
+          <AlertCircle size={24} color="#FF6B6B" style={{ flexShrink: 0, marginTop: '2px' }} />
+          <div style={{ flex: 1 }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#FF6B6B' }}>
+              Error
+            </h3>
+            <p style={{ color: 'white' }}>{error}</p>
+          </div>
+          <button
+            onClick={() => setError(null)}
+            style={{
+              background: 'rgba(255, 107, 107, 0.3)',
+              color: '#FF6B6B',
+              border: 'none',
+              padding: '0.5rem 1rem',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* VALIDATION ERRORS */}
+      {validationErrors.length > 0 && (
+        <div style={{
+          background: 'rgba(255, 193, 7, 0.2)',
+          border: '2px solid #FFC107',
+          borderRadius: '12px',
+          padding: '1.5rem',
+          marginBottom: '2rem'
+        }}>
+          <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '1rem', color: '#FFC107', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <AlertCircle size={24} />
+            Validation Errors
+          </h3>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            {validationErrors.map((err, index) => (
+              <li key={index} style={{ padding: '0.5rem 0', color: 'white' }}>
+                {err}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* SAVE STATUS BANNER */}
+      {saveStatus === 'success' && (
+        <div style={{
+          background: 'rgba(107, 203, 119, 0.2)',
+          border: '2px solid #6BCB77',
+          borderRadius: '12px',
+          padding: '1.5rem',
+          marginBottom: '2rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1rem'
+        }}>
+          <CheckCircle size={24} color="#6BCB77" />
+          <p style={{ color: 'white', fontWeight: 'bold' }}>✅ Game saved successfully!</p>
+        </div>
+      )}
+
       {/* STEP 1: Choose Scenario */}
       {step === 1 && (
         <>
@@ -516,6 +743,21 @@ const KahootCreator = ({ user, onGameCreated }) => {
                 💾 My Saved Games
               </h2>
 
+              {/* ⭐ Rename Error Banner */}
+              {renameError && (
+                <div style={{
+                  background: 'rgba(255, 107, 107, 0.2)',
+                  border: '1px solid #FF6B6B',
+                  borderRadius: '8px',
+                  padding: '1rem',
+                  marginBottom: '1rem',
+                  color: '#FF6B6B',
+                  fontSize: '0.9rem'
+                }}>
+                  ⚠️ {renameError}
+                </div>
+              )}
+
               {savedGames.length === 0 ? (
                 <div style={{ textAlign: 'center', color: '#888', padding: '3rem' }}>
                   <BookOpen size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
@@ -537,61 +779,153 @@ const KahootCreator = ({ user, onGameCreated }) => {
                         transition: 'all 0.2s ease'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(107, 203, 119, 0.2)';
-                        e.currentTarget.style.borderColor = '#6BCB77';
+                        if (renamingGameId !== game.id) {
+                          e.currentTarget.style.background = 'rgba(107, 203, 119, 0.2)';
+                          e.currentTarget.style.borderColor = '#6BCB77';
+                        }
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(107, 203, 119, 0.1)';
-                        e.currentTarget.style.borderColor = 'rgba(107, 203, 119, 0.3)';
+                        if (renamingGameId !== game.id) {
+                          e.currentTarget.style.background = 'rgba(107, 203, 119, 0.1)';
+                          e.currentTarget.style.borderColor = 'rgba(107, 203, 119, 0.3)';
+                        }
                       }}
                     >
                       <div style={{ flex: 1 }}>
-                        <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
-                          {game.scenarioName}
-                        </h3>
+                        {/* ⭐ RENAME MODE */}
+                        {renamingGameId === game.id ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                            <input
+                              type="text"
+                              value={newGameName}
+                              onChange={(e) => setNewGameName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleConfirmRename(game.id);
+                                if (e.key === 'Escape') handleCancelRename();
+                              }}
+                              autoFocus
+                              style={{
+                                flex: 1,
+                                background: 'rgba(255, 255, 255, 0.1)',
+                                border: '2px solid #4D96FF',
+                                borderRadius: '6px',
+                                padding: '0.5rem',
+                                color: 'white',
+                                fontSize: '1.1rem',
+                                fontWeight: 'bold'
+                              }}
+                              placeholder="Enter new name..."
+                            />
+                            <button
+                              onClick={() => handleConfirmRename(game.id)}
+                              style={{
+                                background: '#6BCB77',
+                                color: 'white',
+                                padding: '0.5rem',
+                                borderRadius: '6px',
+                                border: 'none',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                              title="Save"
+                            >
+                              <Check size={20} />
+                            </button>
+                            <button
+                              onClick={handleCancelRename}
+                              style={{
+                                background: 'rgba(255, 107, 107, 0.3)',
+                                color: '#FF6B6B',
+                                padding: '0.5rem',
+                                borderRadius: '6px',
+                                border: 'none',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                              title="Cancel"
+                            >
+                              <X size={20} />
+                            </button>
+                          </div>
+                        ) : (
+                          /* ⭐ NORMAL MODE */
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                            <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold', margin: 0 }}>
+                              {game.scenarioName}
+                            </h3>
+                            <button
+                              onClick={() => handleStartRename(game)}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: '#4D96FF',
+                                cursor: 'pointer',
+                                padding: '0.25rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                opacity: 0.7,
+                                transition: 'opacity 0.2s ease'
+                              }}
+                              onMouseEnter={(e) => e.target.style.opacity = 1}
+                              onMouseLeave={(e) => e.target.style.opacity = 0.7}
+                              title="Rename game"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                          </div>
+                        )}
+
                         <p style={{ fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem' }}>
                           {game.scenarioDescription}
                         </p>
                         <div style={{ fontSize: '0.85rem', color: '#888', display: 'flex', gap: '1rem' }}>
-                          <span>📝 {game.questions.length} questions</span>
-                          <span>📊 {game.pcapData?.packets.length || 0} packets</span>
+                          <span>📝 {game.questions?.length || 0} questions</span>
+                          <span>📊 {game.pcapData?.packets?.length || 0} packets</span>
                           <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                             <Calendar size={14} />
                             {new Date(game.createdAt).toLocaleDateString()}
                           </span>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button
-                          onClick={() => handleLoadSavedGame(game)}
-                          style={{
-                            background: '#6BCB77',
-                            color: 'white',
-                            padding: '0.75rem 1.5rem',
-                            borderRadius: '6px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontWeight: 'bold',
-                            fontSize: '0.9rem'
-                          }}
-                        >
-                          Load
-                        </button>
-                        <button
-                          onClick={() => handleDeleteSavedGame(game.id)}
-                          style={{
-                            background: 'rgba(255, 107, 107, 0.3)',
-                            color: '#FF6B6B',
-                            padding: '0.75rem',
-                            borderRadius: '6px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontWeight: 'bold'
-                          }}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
+
+                      {/* ⭐ Action Buttons - Only show if not renaming */}
+                      {renamingGameId !== game.id && (
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button
+                            onClick={() => handleLoadSavedGame(game)}
+                            style={{
+                              background: '#6BCB77',
+                              color: 'white',
+                              padding: '0.75rem 1.5rem',
+                              borderRadius: '6px',
+                              border: 'none',
+                              cursor: 'pointer',
+                              fontWeight: 'bold',
+                              fontSize: '0.9rem'
+                            }}
+                          >
+                            Load
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSavedGame(game.id)}
+                            style={{
+                              background: 'rgba(255, 107, 107, 0.3)',
+                              color: '#FF6B6B',
+                              padding: '0.75rem',
+                              borderRadius: '6px',
+                              border: 'none',
+                              cursor: 'pointer',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1022,14 +1356,14 @@ const KahootCreator = ({ user, onGameCreated }) => {
           <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
             <button 
               onClick={handleSaveGame} 
-              disabled={questions.length === 0 || !pcapData}
+              disabled={saveStatus === 'saving'}
               style={{ 
-                background: (questions.length === 0 || !pcapData) ? '#666' : 'rgba(255, 193, 7, 0.2)', 
-                border: `2px solid ${(questions.length === 0 || !pcapData) ? '#666' : '#FFC107'}`,
-                color: (questions.length === 0 || !pcapData) ? '#999' : '#FFC107', 
+                background: saveStatus === 'saving' ? '#666' : 'rgba(255, 193, 7, 0.2)', 
+                border: `2px solid ${saveStatus === 'saving' ? '#666' : '#FFC107'}`,
+                color: saveStatus === 'saving' ? '#999' : '#FFC107', 
                 padding: '1.25rem 2rem', 
                 borderRadius: '8px', 
-                cursor: (questions.length === 0 || !pcapData) ? 'not-allowed' : 'pointer', 
+                cursor: saveStatus === 'saving' ? 'not-allowed' : 'pointer', 
                 flex: 1,
                 fontSize: '1.2rem', 
                 fontWeight: 'bold', 
@@ -1037,23 +1371,23 @@ const KahootCreator = ({ user, onGameCreated }) => {
                 alignItems: 'center', 
                 justifyContent: 'center', 
                 gap: '0.75rem', 
-                opacity: (questions.length === 0 || !pcapData) ? 0.5 : 1 
+                opacity: saveStatus === 'saving' ? 0.5 : 1 
               }}
             >
               <Save size={24} />
-              Save Game
+              {saveStatus === 'saving' ? 'Saving...' : 'Save Game'}
             </button>
 
             <button 
               onClick={handleCreateGame} 
-              disabled={loading || questions.length === 0 || !pcapData} 
+              disabled={loading} 
               style={{ 
-                background: (questions.length === 0 || !pcapData) ? '#666' : '#6BCB77', 
+                background: loading ? '#666' : '#6BCB77', 
                 color: 'white', 
                 padding: '1.25rem 2rem', 
                 borderRadius: '8px', 
                 border: 'none', 
-                cursor: (questions.length === 0 || !pcapData) ? 'not-allowed' : 'pointer', 
+                cursor: loading ? 'not-allowed' : 'pointer', 
                 flex: 1,
                 fontSize: '1.2rem', 
                 fontWeight: 'bold', 
@@ -1061,7 +1395,7 @@ const KahootCreator = ({ user, onGameCreated }) => {
                 alignItems: 'center', 
                 justifyContent: 'center', 
                 gap: '0.75rem', 
-                opacity: (questions.length === 0 || !pcapData) ? 0.5 : 1 
+                opacity: loading ? 0.5 : 1 
               }}
             >
               {loading ? <>⏳ Creating Game...</> : <><Play size={24} /> Create & Start Game</>}

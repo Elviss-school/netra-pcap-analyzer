@@ -1,4 +1,4 @@
-// src/services/kahootService.js
+// src/services/kahootService.js - COMPLETE WITH RENAME
 
 import { ref, set, get, update, onValue, off, remove } from 'firebase/database';
 import { database } from '../firebase';
@@ -10,17 +10,88 @@ export const kahootService = {
     return Math.floor(100000 + Math.random() * 900000).toString();
   },
 
+  // ⭐ Sanitize PCAP data for Firebase
+  sanitizePcapData(pcapData) {
+    if (!pcapData) return null;
+    
+    const sanitized = JSON.parse(JSON.stringify(pcapData));
+    
+    if (sanitized.summary && sanitized.summary.ip_flows) {
+      const flowsArray = Object.entries(sanitized.summary.ip_flows).map(([key, value]) => ({
+        flow: key,
+        count: value
+      }));
+      sanitized.summary.ip_flows = flowsArray;
+    }
+    
+    if (sanitized.summary && sanitized.summary.port_activity) {
+      const portsArray = Object.entries(sanitized.summary.port_activity).map(([port, count]) => ({
+        port: port,
+        count: count
+      }));
+      sanitized.summary.port_activity = portsArray;
+    }
+    
+    if (sanitized.summary && sanitized.summary.protocols) {
+      const protocolsArray = Object.entries(sanitized.summary.protocols).map(([protocol, count]) => ({
+        protocol: protocol,
+        count: count
+      }));
+      sanitized.summary.protocols = protocolsArray;
+    }
+    
+    return sanitized;
+  },
+
+  // ⭐ Desanitize PCAP data when reading from Firebase
+  desanitizePcapData(pcapData) {
+    if (!pcapData) return null;
+    
+    const desanitized = JSON.parse(JSON.stringify(pcapData));
+    
+    if (desanitized.summary) {
+      if (Array.isArray(desanitized.summary.ip_flows)) {
+        const flowsObj = {};
+        desanitized.summary.ip_flows.forEach(item => {
+          flowsObj[item.flow] = item.count;
+        });
+        desanitized.summary.ip_flows = flowsObj;
+      }
+      
+      if (Array.isArray(desanitized.summary.port_activity)) {
+        const portsObj = {};
+        desanitized.summary.port_activity.forEach(item => {
+          portsObj[item.port] = item.count;
+        });
+        desanitized.summary.port_activity = portsObj;
+      }
+      
+      if (Array.isArray(desanitized.summary.protocols)) {
+        const protocolsObj = {};
+        desanitized.summary.protocols.forEach(item => {
+          protocolsObj[item.protocol] = item.count;
+        });
+        desanitized.summary.protocols = protocolsObj;
+      }
+    }
+    
+    return desanitized;
+  },
+
   // Create a new Kahoot game
-  async createGame(teacherId, scenarioId, customQuestions = null) {
+  async createGame(teacherId, scenarioId, customQuestions = null, pcapData = null) {
     try {
       const roomCode = this.generateRoomCode();
+      
+      const sanitizedPcapData = this.sanitizePcapData(pcapData);
       
       const gameData = {
         roomCode: roomCode,
         teacherId: teacherId,
         scenarioId: scenarioId,
         customQuestions: customQuestions,
-        status: 'lobby', // lobby, playing, finished
+        pcapData: sanitizedPcapData,
+        status: 'lobby',
         currentQuestion: 0,
         players: {},
         createdAt: Date.now(),
@@ -28,13 +99,21 @@ export const kahootService = {
         finishedAt: null
       };
 
+      console.log('📦 Saving game with PCAP:', {
+        roomCode,
+        scenarioId,
+        questionsCount: customQuestions?.length || 0,
+        packetsCount: sanitizedPcapData?.packets?.length || 0,
+        pcapMetadata: sanitizedPcapData?.metadata
+      });
+
       await set(ref(database, `kahoots/${roomCode}`), gameData);
       console.log('✅ Kahoot game created:', roomCode);
       
       return roomCode;
     } catch (error) {
       console.error('❌ Error creating game:', error);
-      throw error;
+      throw new Error(`Failed to create game: ${error.message}`);
     }
   },
 
@@ -54,7 +133,6 @@ export const kahootService = {
         throw new Error('Game already started');
       }
 
-      // Add player to game
       await set(ref(database, `kahoots/${roomCode}/players/${playerId}`), {
         name: playerName,
         score: 0,
@@ -109,13 +187,10 @@ export const kahootService = {
 
       const player = snapshot.val();
       
-      // Calculate points based on time (faster = more points)
-      // Max 1000 points if answered in first second, decreasing to min 500 points
       const basePoints = 1000;
       const timeBonus = Math.floor((timeRemaining / 20) * 500);
       const points = basePoints + timeBonus;
 
-      // Update player's answer and score
       await update(playerRef, {
         [`answers/${questionId}`]: {
           answerIndex: answerIndex,
@@ -166,7 +241,20 @@ export const kahootService = {
     try {
       const snapshot = await get(ref(database, `kahoots/${roomCode}`));
       if (snapshot.exists()) {
-        return snapshot.val();
+        const game = snapshot.val();
+        
+        if (game.pcapData) {
+          game.pcapData = this.desanitizePcapData(game.pcapData);
+        }
+        
+        console.log('📊 Retrieved game data:', {
+          roomCode,
+          status: game.status,
+          hasCustomQuestions: !!game.customQuestions,
+          hasPcapData: !!game.pcapData,
+          packetsCount: game.pcapData?.packets?.length || 0
+        });
+        return game;
       }
       return null;
     } catch (error) {
@@ -180,7 +268,13 @@ export const kahootService = {
     const gameRef = ref(database, `kahoots/${roomCode}`);
     onValue(gameRef, (snapshot) => {
       if (snapshot.exists()) {
-        callback(snapshot.val());
+        const game = snapshot.val();
+        
+        if (game.pcapData) {
+          game.pcapData = this.desanitizePcapData(game.pcapData);
+        }
+        
+        callback(game);
       }
     });
     return gameRef;
@@ -204,7 +298,6 @@ export const kahootService = {
         score: players[playerId].score || 0
       }));
 
-      // Sort by score descending
       leaderboard.sort((a, b) => b.score - a.score);
       
       return leaderboard;
@@ -228,7 +321,7 @@ export const kahootService = {
         await progressTracker.completeKahoot(playerId, {
           roomCode: roomCode,
           score: player.score || 0,
-          rank: 0, // We'll calculate this
+          rank: 0,
           attackType: 'general'
         });
       }
@@ -249,50 +342,140 @@ export const kahootService = {
     }
   },
 
+  // Validate game data before saving
+  validateGameData(gameData) {
+    const errors = [];
+
+    if (!gameData.scenarioName || gameData.scenarioName.trim() === '') {
+      errors.push('Scenario name is required');
+    }
+
+    if (!gameData.questions || gameData.questions.length === 0) {
+      errors.push('At least one question is required');
+    }
+
+    if (!gameData.pcapData || !gameData.pcapData.packets || gameData.pcapData.packets.length === 0) {
+      errors.push('PCAP data with packets is required');
+    }
+
+    gameData.questions?.forEach((q, index) => {
+      if (!q.question || q.question.trim() === '') {
+        errors.push(`Question ${index + 1}: Question text is required`);
+      }
+      if (!q.options || q.options.length < 2) {
+        errors.push(`Question ${index + 1}: At least 2 options required`);
+      }
+      if (q.correctAnswer === undefined || q.correctAnswer === null) {
+        errors.push(`Question ${index + 1}: Correct answer must be selected`);
+      }
+    });
+
+    return errors;
+  },
+
   // Save a game template
   async saveGame(teacherId, gameData) {
     try {
+      console.log('💾 Attempting to save game:', {
+        teacherId,
+        scenarioName: gameData.scenarioName,
+        questionsCount: gameData.questions?.length,
+        packetsCount: gameData.pcapData?.packets?.length
+      });
+
+      const validationErrors = this.validateGameData(gameData);
+      if (validationErrors.length > 0) {
+        console.error('❌ Validation failed:', validationErrors);
+        throw new Error(`Validation failed:\n${validationErrors.join('\n')}`);
+      }
+
+      const sanitizedPcapData = this.sanitizePcapData(gameData.pcapData);
+
       const gameId = `saved_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const gameRef = ref(database, `savedGames/${gameId}`);
       
-      await set(gameRef, {
+      const gameToSave = {
         id: gameId,
         ...gameData,
+        pcapData: sanitizedPcapData,
         teacherId,
         createdAt: Date.now(),
         updatedAt: Date.now()
+      };
+
+      console.log('📤 Sending to Firebase:', {
+        gameId,
+        path: `savedGames/${gameId}`,
+        dataSize: JSON.stringify(gameToSave).length
       });
+
+      await set(gameRef, gameToSave);
       
-      console.log('✅ Game saved:', gameId);
+      const verifySnapshot = await get(gameRef);
+      if (!verifySnapshot.exists()) {
+        throw new Error('Game was not saved properly - verification failed');
+      }
+
+      console.log('✅ Game saved successfully:', gameId);
+      console.log('✅ Verification passed - game exists in Firebase');
+      
       return gameId;
     } catch (error) {
       console.error('❌ Error saving game:', error);
-      throw error;
+      console.error('Error details:', {
+        name: error.name,
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
+      throw new Error(`Failed to save game: ${error.message}`);
     }
   },
 
   // Get all saved games for a teacher
   async getSavedGames(teacherId) {
     try {
+      console.log('📂 Loading saved games for teacher:', teacherId);
+      
       const savedGamesRef = ref(database, 'savedGames');
       const snapshot = await get(savedGamesRef);
       
-      if (!snapshot.exists()) return [];
+      if (!snapshot.exists()) {
+        console.log('📂 No saved games found in database');
+        return [];
+      }
 
       const savedGames = snapshot.val();
       const teacherGames = [];
 
-      // Filter games by teacherId
       for (const gameId in savedGames) {
         if (savedGames[gameId].teacherId === teacherId) {
-          teacherGames.push(savedGames[gameId]);
+          const game = savedGames[gameId];
+          
+          if (game.pcapData) {
+            game.pcapData = this.desanitizePcapData(game.pcapData);
+          }
+          
+          if (game.questions && game.pcapData) {
+            teacherGames.push(game);
+          } else {
+            console.warn('⚠️ Invalid game structure found:', gameId);
+          }
         }
       }
 
-      // Sort by createdAt descending
       teacherGames.sort((a, b) => b.createdAt - a.createdAt);
       
-      console.log('✅ Retrieved saved games:', teacherGames.length);
+      console.log('✅ Retrieved saved games:', {
+        total: teacherGames.length,
+        games: teacherGames.map(g => ({
+          id: g.id,
+          name: g.scenarioName,
+          questions: g.questions?.length,
+          packets: g.pcapData?.packets?.length
+        }))
+      });
+      
       return teacherGames;
     } catch (error) {
       console.error('❌ Error getting saved games:', error);
@@ -303,7 +486,8 @@ export const kahootService = {
   // Delete a saved game
   async deleteSavedGame(teacherId, gameId) {
     try {
-      // First, verify the game belongs to the teacher
+      console.log('🗑️ Attempting to delete game:', { teacherId, gameId });
+      
       const gameRef = ref(database, `savedGames/${gameId}`);
       const snapshot = await get(gameRef);
       
@@ -317,10 +501,53 @@ export const kahootService = {
       }
 
       await remove(gameRef);
-      console.log('✅ Saved game deleted:', gameId);
+      
+      const verifySnapshot = await get(gameRef);
+      if (verifySnapshot.exists()) {
+        throw new Error('Game deletion failed - game still exists');
+      }
+      
+      console.log('✅ Saved game deleted successfully:', gameId);
     } catch (error) {
       console.error('❌ Error deleting saved game:', error);
-      throw error;
+      throw new Error(`Failed to delete game: ${error.message}`);
+    }
+  },
+
+  // ⭐ NEW: Rename a saved game
+  async renameGame(teacherId, gameId, newName) {
+    try {
+      console.log('✏️ Renaming game:', { teacherId, gameId, newName });
+      
+      const gameRef = ref(database, `savedGames/${gameId}`);
+      const snapshot = await get(gameRef);
+      
+      if (!snapshot.exists()) {
+        throw new Error('Game not found');
+      }
+
+      const game = snapshot.val();
+      if (game.teacherId !== teacherId) {
+        throw new Error('Unauthorized to rename this game');
+      }
+
+      if (!newName || newName.trim() === '') {
+        throw new Error('Game name cannot be empty');
+      }
+
+      if (newName.length > 100) {
+        throw new Error('Game name too long (max 100 characters)');
+      }
+
+      await update(gameRef, {
+        scenarioName: newName.trim(),
+        updatedAt: Date.now()
+      });
+
+      console.log('✅ Game renamed successfully:', gameId);
+    } catch (error) {
+      console.error('❌ Error renaming game:', error);
+      throw new Error(`Failed to rename game: ${error.message}`);
     }
   }
-};
+};  
