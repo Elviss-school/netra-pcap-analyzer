@@ -1,12 +1,12 @@
-// src/components/KahootGameplay.jsx (COMPLETE WITH PCAP VIEWER)
+// src/components/KahootGameplay.jsx (FIXED - PCAP NOW DISPLAYS)
 
 import React, { useState, useEffect } from 'react';
-import { Clock, Zap } from 'lucide-react';
+import { Clock, Zap, LogOut, AlertTriangle } from 'lucide-react';
 import { kahootService } from '../services/kahootService';
 import { attackScenarios, getScenarioById } from '../data/attackScenarios';
 import PcapViewer from './PcapViewer';
 
-const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd }) => {
+const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd, onLeave }) => {
   const [gameData, setGameData] = useState(null);
   const [scenario, setScenario] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(null);
@@ -17,6 +17,7 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd }) => {
   const [pointsEarned, setPointsEarned] = useState(0);
   const [leaderboard, setLeaderboard] = useState([]);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   // Listen to game updates
   useEffect(() => {
@@ -26,13 +27,20 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd }) => {
       // Load scenario if not loaded
       if (!scenario && game.scenarioId) {
         const loadedScenario = getScenarioById(game.scenarioId);
+        
+        // ⭐ IMPORTANT: Use PCAP from game data instead of scenario
         if (loadedScenario) {
-          setScenario(loadedScenario);
+          setScenario({
+            ...loadedScenario,
+            pcapData: game.pcapData || loadedScenario.pcapData // Use game's PCAP data
+          });
         } else if (game.customQuestions) {
+          // Custom game
           setScenario({
             id: game.scenarioId,
             name: 'Custom Game',
-            questions: game.customQuestions
+            questions: game.customQuestions,
+            pcapData: game.pcapData // ⭐ Load PCAP from game
           });
         }
       }
@@ -58,7 +66,6 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd }) => {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
       return () => clearTimeout(timer);
     } else if (timeLeft === 0 && !answered) {
-      // Time's up - auto submit
       handleSubmitAnswer();
     }
   }, [timeLeft, answered, showExplanation, showLeaderboard]);
@@ -90,7 +97,6 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd }) => {
     setAnswered(true);
 
     try {
-      // Submit answer to Firebase
       const points = await kahootService.submitAnswer(
         roomCode,
         playerId,
@@ -101,12 +107,10 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd }) => {
 
       setPointsEarned(points);
 
-      // Show explanation
       setTimeout(() => {
         setShowExplanation(true);
       }, 500);
 
-      // Show leaderboard after explanation
       setTimeout(async () => {
         const lb = await kahootService.getLeaderboard(roomCode);
         setLeaderboard(lb);
@@ -116,6 +120,29 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd }) => {
     } catch (error) {
       console.error('Error submitting answer:', error);
     }
+  };
+
+  const handleLeaveClick = () => {
+    setShowLeaveConfirm(true);
+  };
+
+  const handleConfirmLeave = async () => {
+    try {
+      console.log('🚪 Leaving game...', { roomCode, playerId });
+      await kahootService.leaveGame(roomCode, playerId);
+      console.log('✅ Left game successfully');
+      
+      if (onLeave) {
+        onLeave();
+      }
+    } catch (error) {
+      console.error('❌ Error leaving game:', error);
+      alert('Failed to leave game. Please try again.');
+    }
+  };
+
+  const handleCancelLeave = () => {
+    setShowLeaveConfirm(false);
   };
 
   if (!gameData || !scenario || !currentQuestion) {
@@ -145,8 +172,168 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd }) => {
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       padding: '2rem',
-      color: 'white'
+      paddingTop: '5rem',
+      color: 'white',
+      position: 'relative'
     }}>
+      
+      {/* Leave Button */}
+      <button
+        onClick={handleLeaveClick}
+        style={{
+          position: 'absolute',
+          top: '2rem',
+          right: '2rem',
+          background: 'rgba(255, 107, 107, 0.9)',
+          color: 'white',
+          padding: '0.75rem 1.5rem',
+          borderRadius: '12px',
+          border: '2px solid rgba(255, 255, 255, 0.3)',
+          cursor: 'pointer',
+          fontSize: '1rem',
+          fontWeight: 'bold',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          backdropFilter: 'blur(10px)',
+          transition: 'all 0.3s ease',
+          zIndex: 100,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+        }}
+        onMouseEnter={(e) => {
+          e.target.style.background = 'rgba(255, 107, 107, 1)';
+          e.target.style.transform = 'translateY(-2px)';
+          e.target.style.boxShadow = '0 6px 16px rgba(0,0,0,0.3)';
+        }}
+        onMouseLeave={(e) => {
+          e.target.style.background = 'rgba(255, 107, 107, 0.9)';
+          e.target.style.transform = 'translateY(0)';
+          e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+        }}
+      >
+        <LogOut size={20} />
+        Leave Game
+      </button>
+
+      {/* Leave Confirmation Modal */}
+      {showLeaveConfirm && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2000,
+          backdropFilter: 'blur(5px)'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '24px',
+            padding: '2.5rem',
+            maxWidth: '450px',
+            width: '90%',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+            animation: 'slideIn 0.3s ease'
+          }}>
+            <div style={{
+              width: '80px',
+              height: '80px',
+              background: 'linear-gradient(135deg, #FF6B6B, #FF8E53)',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 1.5rem'
+            }}>
+              <AlertTriangle size={40} color="white" />
+            </div>
+
+            <h3 style={{
+              fontSize: '1.8rem',
+              fontWeight: 'bold',
+              color: '#1a1a1a',
+              textAlign: 'center',
+              marginBottom: '1rem'
+            }}>
+              Leave Game?
+            </h3>
+
+            <p style={{
+              color: '#666',
+              fontSize: '1rem',
+              textAlign: 'center',
+              marginBottom: '2rem',
+              lineHeight: '1.6'
+            }}>
+              Are you sure you want to leave? Your progress will be saved, but you won't be able to rejoin this game.
+            </p>
+
+            <div style={{
+              display: 'flex',
+              gap: '1rem'
+            }}>
+              <button
+                onClick={handleCancelLeave}
+                style={{
+                  flex: 1,
+                  background: '#f5f5f5',
+                  color: '#666',
+                  padding: '1rem 1.5rem',
+                  borderRadius: '12px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: 'bold',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = '#e0e0e0';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = '#f5f5f5';
+                }}
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleConfirmLeave}
+                style={{
+                  flex: 1,
+                  background: 'linear-gradient(135deg, #FF6B6B, #FF8E53)',
+                  color: 'white',
+                  padding: '1rem 1.5rem',
+                  borderRadius: '12px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.transform = 'translateY(-2px)';
+                  e.target.style.boxShadow = '0 6px 20px rgba(255, 107, 107, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.transform = 'translateY(0)';
+                  e.target.style.boxShadow = 'none';
+                }}
+              >
+                <LogOut size={18} />
+                Leave Game
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Question Phase */}
       {!showExplanation && !showLeaderboard && (
@@ -186,9 +373,11 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd }) => {
             </div>
           </div>
 
-          {/* PCAP VISUALIZATION */}
-          {scenario.pcapData && (
-            <PcapViewer pcapData={scenario.pcapData} />
+          {/* ⭐ PCAP VISUALIZATION - NOW SHOWS CORRECTLY */}
+          {scenario.pcapData && scenario.pcapData.packets && (
+            <div style={{ marginBottom: '2rem' }}>
+              <PcapViewer pcapData={scenario.pcapData} />
+            </div>
           )}
 
           {/* Question */}
@@ -294,7 +483,6 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd }) => {
       {showExplanation && !showLeaderboard && (
         <div style={{ maxWidth: '900px', margin: '0 auto', textAlign: 'center' }}>
           
-          {/* Result Icon */}
           <div style={{
             fontSize: '8rem',
             marginBottom: '2rem',
@@ -303,7 +491,6 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd }) => {
             {isCorrect ? '✅' : '❌'}
           </div>
 
-          {/* Result Message */}
           <h2 style={{
             fontSize: '3rem',
             fontWeight: 'bold',
@@ -312,7 +499,6 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd }) => {
             {isCorrect ? 'Correct!' : 'Incorrect'}
           </h2>
 
-          {/* Points Earned */}
           {isCorrect && (
             <div style={{
               fontSize: '2rem',
@@ -327,7 +513,6 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd }) => {
             </div>
           )}
 
-          {/* Correct Answer */}
           <div style={{
             background: 'rgba(255, 255, 255, 0.2)',
             borderRadius: '16px',
@@ -343,7 +528,6 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd }) => {
             </div>
           </div>
 
-          {/* Explanation */}
           <div style={{
             background: 'white',
             color: '#1a1a1a',
@@ -380,12 +564,12 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd }) => {
             boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
           }}>
             {leaderboard.map((player, index) => {
-              const isCurrentPlayer = player.playerId === playerId;
+              const isCurrentPlayer = player.id === playerId;
               const medals = ['🥇', '🥈', '🥉'];
               
               return (
                 <div
-                  key={player.playerId}
+                  key={player.id}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -446,6 +630,16 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd }) => {
           }
           50% {
             transform: translateY(-20px);
+          }
+        }
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateY(-30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
           }
         }
       `}</style>

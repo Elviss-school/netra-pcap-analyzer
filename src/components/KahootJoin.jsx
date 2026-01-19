@@ -1,10 +1,10 @@
-// src/components/KahootJoin.jsx (NEW FILE)
+// src/components/KahootJoin.jsx (WITH LEAVE BUTTON)
 
 import React, { useState } from 'react';
-import { GamepadIcon, ArrowRight, AlertCircle } from 'lucide-react';
+import { GamepadIcon, ArrowRight, AlertCircle, LogOut } from 'lucide-react';
 import { kahootService } from '../services/kahootService';
 
-const KahootJoin = ({ user, onJoined }) => {
+const KahootJoin = ({ user, onJoined, onLeave }) => {
   const [step, setStep] = useState(1); // 1: Enter code, 2: Enter name, 3: Joining
   const [roomCode, setRoomCode] = useState('');
   const [playerName, setPlayerName] = useState('');
@@ -90,6 +90,13 @@ const KahootJoin = ({ user, onJoined }) => {
     setError(null);
   };
 
+  // Handle leave button
+  const handleLeave = () => {
+    if (onLeave) {
+      onLeave();
+    }
+  };
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -97,8 +104,44 @@ const KahootJoin = ({ user, onJoined }) => {
       alignItems: 'center',
       justifyContent: 'center',
       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      padding: '2rem'
+      padding: '2rem',
+      position: 'relative'
     }}>
+      
+      {/* Leave Button (Top Right) */}
+      <button
+        onClick={handleLeave}
+        style={{
+          position: 'absolute',
+          top: '2rem',
+          right: '2rem',
+          background: 'rgba(255, 255, 255, 0.2)',
+          color: 'white',
+          padding: '0.75rem 1.5rem',
+          borderRadius: '12px',
+          border: '2px solid rgba(255, 255, 255, 0.3)',
+          cursor: 'pointer',
+          fontSize: '1rem',
+          fontWeight: 'bold',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          backdropFilter: 'blur(10px)',
+          transition: 'all 0.3s ease'
+        }}
+        onMouseEnter={(e) => {
+          e.target.style.background = 'rgba(255, 255, 255, 0.3)';
+          e.target.style.transform = 'translateY(-2px)';
+        }}
+        onMouseLeave={(e) => {
+          e.target.style.background = 'rgba(255, 255, 255, 0.2)';
+          e.target.style.transform = 'translateY(0)';
+        }}
+      >
+        <LogOut size={20} />
+        Leave
+      </button>
+
       <div style={{
         background: 'white',
         borderRadius: '24px',
@@ -324,7 +367,14 @@ const KahootJoin = ({ user, onJoined }) => {
                     padding: '1.25rem',
                     border: 'none',
                     borderRadius: '12px',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = '#e0e0e0';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = '#f5f5f5';
                   }}
                 >
                   Back

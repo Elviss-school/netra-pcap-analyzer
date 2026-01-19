@@ -1,4 +1,4 @@
-// src/App.jsx (COMPLETE FILE WITH CENTERED UPLOAD)
+// src/App.jsx (COMPLETE FILE WITH PCAP CREATOR)
 
 import AuthPage from './components/AuthPage';
 import KahootJoin from './components/KahootJoin';
@@ -7,6 +7,7 @@ import KahootCreator from './components/KahootCreator';
 import KahootDashboard from './components/KahootDashboard';
 import KahootGameplay from './components/KahootGameplay';
 import KahootHost from './components/KahootHost';
+import PcapCreator from './components/PcapCreator';
 import KahootResults from './components/KahootResults';
 import ProfilePage from './components/ProfilePage';
 import React, { useState, useRef, useEffect } from 'react';
@@ -650,6 +651,12 @@ export default function App() {
                 active={currentView === 'create-kahoot'} 
                 onClick={() => setCurrentView('create-kahoot')} 
               />
+              <SidebarItem 
+                icon={Network} 
+                label="PCAP Creator" 
+                active={currentView === 'pcap-creator'} 
+                onClick={() => setCurrentView('pcap-creator')} 
+              />
             </>
           )}
         </nav>
@@ -750,6 +757,11 @@ export default function App() {
               playerId={user?.uid}
               playerName={kahootPlayerName}
               onGameEnd={() => setKahootView('results')}
+              onLeave={() => {
+                setKahootView('join');
+                setKahootRoom(null);
+                setKahootPlayerName(null);
+              }}
             />
           ) : kahootView === 'results' ? (
             <KahootResults
@@ -787,6 +799,15 @@ export default function App() {
               setKahootRoom(code);
               setCurrentView('kahoot-host');
             }}
+          />
+        ) : currentView === 'pcap-creator' ? (
+          <PcapCreator
+            onPcapCreated={(pcapData) => {
+              console.log('PCAP Created:', pcapData);
+              alert('PCAP Created Successfully!');
+              setCurrentView('create-kahoot');
+            }}
+            onCancel={() => setCurrentView('kahoot-dashboard')}
           />
         ) : currentView === 'kahoot-host' ? (
           <KahootHost

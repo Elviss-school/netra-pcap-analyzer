@@ -1,4 +1,4 @@
-// src/services/kahootService.js (NEW FILE)
+// src/services/kahootService.js
 
 import { ref, set, get, update, onValue, off, remove } from 'firebase/database';
 import { database } from '../firebase';
@@ -66,6 +66,18 @@ export const kahootService = {
       return true;
     } catch (error) {
       console.error('❌ Error joining game:', error);
+      throw error;
+    }
+  },
+
+  // Student leaves game
+  async leaveGame(roomCode, playerId) {
+    try {
+      await remove(ref(database, `kahoots/${roomCode}/players/${playerId}`));
+      console.log('✅ Player left game');
+      return true;
+    } catch (error) {
+      console.error('❌ Error leaving game:', error);
       throw error;
     }
   },
@@ -234,6 +246,81 @@ export const kahootService = {
       console.log('✅ Game deleted');
     } catch (error) {
       console.error('❌ Error deleting game:', error);
+    }
+  },
+
+  // Save a game template
+  async saveGame(teacherId, gameData) {
+    try {
+      const gameId = `saved_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const gameRef = ref(database, `savedGames/${gameId}`);
+      
+      await set(gameRef, {
+        id: gameId,
+        ...gameData,
+        teacherId,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      });
+      
+      console.log('✅ Game saved:', gameId);
+      return gameId;
+    } catch (error) {
+      console.error('❌ Error saving game:', error);
+      throw error;
+    }
+  },
+
+  // Get all saved games for a teacher
+  async getSavedGames(teacherId) {
+    try {
+      const savedGamesRef = ref(database, 'savedGames');
+      const snapshot = await get(savedGamesRef);
+      
+      if (!snapshot.exists()) return [];
+
+      const savedGames = snapshot.val();
+      const teacherGames = [];
+
+      // Filter games by teacherId
+      for (const gameId in savedGames) {
+        if (savedGames[gameId].teacherId === teacherId) {
+          teacherGames.push(savedGames[gameId]);
+        }
+      }
+
+      // Sort by createdAt descending
+      teacherGames.sort((a, b) => b.createdAt - a.createdAt);
+      
+      console.log('✅ Retrieved saved games:', teacherGames.length);
+      return teacherGames;
+    } catch (error) {
+      console.error('❌ Error getting saved games:', error);
+      return [];
+    }
+  },
+
+  // Delete a saved game
+  async deleteSavedGame(teacherId, gameId) {
+    try {
+      // First, verify the game belongs to the teacher
+      const gameRef = ref(database, `savedGames/${gameId}`);
+      const snapshot = await get(gameRef);
+      
+      if (!snapshot.exists()) {
+        throw new Error('Game not found');
+      }
+
+      const game = snapshot.val();
+      if (game.teacherId !== teacherId) {
+        throw new Error('Unauthorized to delete this game');
+      }
+
+      await remove(gameRef);
+      console.log('✅ Saved game deleted:', gameId);
+    } catch (error) {
+      console.error('❌ Error deleting saved game:', error);
+      throw error;
     }
   }
 };
