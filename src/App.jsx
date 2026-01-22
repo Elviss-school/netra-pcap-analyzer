@@ -551,21 +551,55 @@ export default function App() {
     fileInputRef.current?.click();
   };
 
-  // Show loading while checking auth
+  // Show loading while checking auth (updated)
   if (authLoading) {
     return (
       <div style={{
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        color: 'white'
+        background: '#0f0f0f',
+        color: '#E0E0E0',
+        fontFamily: "'Inter', sans-serif",
       }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⏳</div>
-          <h2 style={{ fontSize: '2rem' }}>Loading Netra...</h2>
-        </div>
+        {/* CSS Animation Keyframes */}
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+          }
+        `}</style>
+
+        {/* The Spinner (using your Primary & Secondary colors) */}
+        <div style={{
+          width: '50px',
+          height: '50px',
+          border: '3px solid rgba(37, 37, 64, 1)',
+          borderTop: '3px solid #4D96FF',        
+          borderRight: '3px solid #A45EE5',      
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+          marginBottom: '1.5rem'
+        }} />
+
+        {/* The Text */}
+        <h2 style={{
+          fontSize: '1.5rem',
+          fontWeight: '600',
+          letterSpacing: '0.05em',
+          background: 'linear-gradient(135deg, #4D96FF, #A45EE5)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          animation: 'pulse 2s infinite ease-in-out'
+        }}>
+          Loading Netra...
+        </h2>
       </div>
     );
   }
