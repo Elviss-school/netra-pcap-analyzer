@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  html { font-size: 16px; }
+}
+
+/* Smaller laptops: shrink everything ~like 80–90% zoom */
+@media (max-width: 1366px), (max-height: 800px) {
+  html { font-size: 14px; }  /* try 13px if you want stronger shrink */
+}
+
 body {
   background-color: #1E1E2E;
   color: #E0E0E0;
