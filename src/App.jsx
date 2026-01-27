@@ -1,4 +1,4 @@
-// src/App.jsx (COMPLETE FILE WITH PCAP CREATOR)
+// src/App.jsx (COMPLETE FILE WITH PCAP CREATOR - FULLY FIXED)
 
 import AuthPage from './components/AuthPage';
 import KahootJoin from './components/KahootJoin';
@@ -285,6 +285,22 @@ export default function App() {
   const parsePcapInline = (arrayBuffer) => {
     const dataView = new DataView(arrayBuffer);
     
+    // ⭐ FIX: Detect magic number and endianness FIRST
+    const magicNumber = dataView.getUint32(0, false);
+    let littleEndian = false;
+    
+    if (magicNumber === 0xa1b2c3d4) {
+      littleEndian = false; // Big-endian PCAP
+      console.log('✅ Detected Big-endian PCAP format');
+    } else if (magicNumber === 0xd4c3b2a1) {
+      littleEndian = true; // Little-endian PCAP
+      console.log('✅ Detected Little-endian PCAP format');
+    } else if (magicNumber === 0x0a0d0d0a) {
+      throw new Error('PCAPNG format detected. Please convert to standard PCAP format first.');
+    } else {
+      throw new Error('Invalid PCAP file format. Magic number: 0x' + magicNumber.toString(16));
+    }
+    
     let packets = [];
     let protocols = {};
     let ipPairs = {};
@@ -310,9 +326,10 @@ export default function App() {
 
     try {
       while (offset < arrayBuffer.byteLength - 16) {
-        const tsSec = dataView.getUint32(offset, true);
-        const tsUsec = dataView.getUint32(offset + 4, true);
-        const inclLen = dataView.getUint32(offset + 8, true);
+        // ⭐ FIX: Use detected endianness and add missing tsUsec
+        const tsSec = dataView.getUint32(offset, littleEndian);
+        const tsUsec = dataView.getUint32(offset + 4, littleEndian);  // ✅ ADDED: was missing
+        const inclLen = dataView.getUint32(offset + 8, littleEndian);  // ✅ FIXED: was hardcoded
         
         if (inclLen > 65535 || inclLen === 0) break;
         offset += 16;
@@ -470,10 +487,12 @@ export default function App() {
         offset += inclLen;
       }
       
+      console.log(`✅ Parsed ${packets.length} packets successfully`);
+      
       const duration = packets.length > 0 ? Math.max(...packets.map(p => p.time)) : 0;
-      const avgPacketSize = packetSizes.reduce((a, b) => a + b, 0) / packetSizes.length;
-      const maxPacketSize = Math.max(...packetSizes);
-      const minPacketSize = Math.min(...packetSizes);
+      const avgPacketSize = packetSizes.length > 0 ? packetSizes.reduce((a, b) => a + b, 0) / packetSizes.length : 0;
+      const maxPacketSize = packetSizes.length > 0 ? Math.max(...packetSizes) : 0;
+      const minPacketSize = packetSizes.length > 0 ? Math.min(...packetSizes) : 0;
       
       return {
         packets,
@@ -497,6 +516,7 @@ export default function App() {
         }
       };
     } catch (err) {
+      console.error('❌ PCAP Parse Error:', err);
       throw new Error('Failed to parse PCAP: ' + err.message);
     }
   };
@@ -561,11 +581,10 @@ export default function App() {
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: '100vh',
-        background: '#0f0f0f', // Matches your Login Page background
-        color: '#E0E0E0',      // Matches your 'textMain' palette
-        fontFamily: "'Inter', sans-serif", // Matches your 'sans' font
+        background: '#0f0f0f',
+        color: '#E0E0E0',
+        fontFamily: "'Inter', sans-serif",
       }}>
-        {/* CSS Animation Keyframes */}
         <style>{`
           @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -577,26 +596,24 @@ export default function App() {
           }
         `}</style>
 
-        {/* The Spinner (using your Primary & Secondary colors) */}
         <div style={{
           width: '50px',
           height: '50px',
-          border: '3px solid rgba(37, 37, 64, 1)', // 'surface' color for the track
-          borderTop: '3px solid #4D96FF',          // 'primary' color
-          borderRight: '3px solid #A45EE5',        // 'secondary' color
+          border: '3px solid rgba(37, 37, 64, 1)',
+          borderTop: '3px solid #4D96FF',
+          borderRight: '3px solid #A45EE5',
           borderRadius: '50%',
           animation: 'spin 1s linear infinite',
           marginBottom: '1.5rem'
         }} />
 
-        {/* The Text */}
         <h2 style={{
           fontSize: '1.5rem',
           fontWeight: '600',
           letterSpacing: '0.05em',
-          background: 'linear-gradient(135deg, #4D96FF, #A45EE5)', // Gradient text
+          background: 'linear-gradient(135deg, #4D96FF, #A45EE5)',
           WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent', // Makes the text take the gradient color
+          WebkitTextFillColor: 'transparent',
           animation: 'pulse 2s infinite ease-in-out'
         }}>
           Loading Netra...
@@ -736,7 +753,6 @@ export default function App() {
           </button>
         </div>
 
-        {/* Only show sidebar upload button if PCAP is loaded */}
         {pcapData && (
           <div className="p-4">
             <button onClick={handleUploadClick} disabled={loading} className="w-full bg-primary hover:bg-blue-600 text-white p-3 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">

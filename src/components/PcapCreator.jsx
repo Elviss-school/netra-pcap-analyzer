@@ -339,90 +339,160 @@ const PcapCreator = ({ onCancel }) => {
   };
 
   // ============ PARSE PCAP FILE ============
-  const parsePcapFile = (arrayBuffer) => {
-    const dataView = new DataView(arrayBuffer);
-    let packetList = [];
-    let offset = 24;
-    let packetNum = 0;
+// ============ PARSE PCAP FILE ============
+const parsePcapFile = (arrayBuffer) => {
+  const dataView = new DataView(arrayBuffer);
+  let packetList = [];
+  
+  // Check magic number to determine endianness
+  const magicNumber = dataView.getUint32(0, false); // Big-endian first
+  let littleEndian = false;
+  
+  if (magicNumber === 0xa1b2c3d4) {
+    littleEndian = false; // Standard PCAP (big-endian)
+  } else if (magicNumber === 0xd4c3b2a1) {
+    littleEndian = true; // PCAP (little-endian)
+  } else if (magicNumber === 0x0a0d0d0a) {
+    // PCAPNG format - more complex, needs different parser
+    alert('PCAPNG format detected. Please convert to standard PCAP format first.');
+    return [];
+  } else {
+    alert('Invalid PCAP file format. Magic number: 0x' + magicNumber.toString(16));
+    return [];
+  }
 
-    while (offset < arrayBuffer.byteLength - 16) {
-      try {
-        const tsSec = dataView.getUint32(offset, false);
-        const tsUsec = dataView.getUint32(offset + 4, false);
-        const inclLen = dataView.getUint32(offset + 8, false);
+  console.log(`PCAP format detected: ${littleEndian ? 'Little-endian' : 'Big-endian'}`);
+  
+  let offset = 24; // Skip global header
+  let packetNum = 0;
+
+  while (offset < arrayBuffer.byteLength - 16) {
+    try {
+      // Read packet header (16 bytes) with correct endianness
+      const tsSec = dataView.getUint32(offset, littleEndian);
+      const tsUsec = dataView.getUint32(offset + 4, littleEndian);
+      const inclLen = dataView.getUint32(offset + 8, littleEndian);
+      const origLen = dataView.getUint32(offset + 12, littleEndian);
+      
+      // Sanity checks
+      if (inclLen > 65535 || inclLen === 0) {
+        console.warn(`Packet ${packetNum + 1}: Invalid length ${inclLen}, stopping parse`);
+        break;
+      }
+      
+      if (offset + 16 + inclLen > arrayBuffer.byteLength) {
+        console.warn(`Packet ${packetNum + 1}: Incomplete packet data, stopping parse`);
+        break;
+      }
+      
+      offset += 16; // Move past packet header
+      
+      packetNum++;
+      const packet = {
+        packet_num: packetNum,
+        timestamp: tsSec + (tsUsec / 1000000),
+        src_ip: 'Unknown',
+        dst_ip: 'Unknown',
+        src_port: 0,
+        dst_port: 0,
+        protocol: 'Unknown',
+        length: inclLen,
+        flags: [],
+        payload: '',
+        raw_data: new Uint8Array(arrayBuffer, offset, inclLen)
+      };
+      
+      // Parse Ethernet frame (minimum 14 bytes)
+      if (inclLen >= 14) {
+        // Check EtherType (bytes 12-13)
+        const etherType = dataView.getUint16(offset + 12, false); // Always big-endian
         
-        if (inclLen > 65535 || inclLen === 0) break;
-        offset += 16;
-        
-        if (offset + inclLen > arrayBuffer.byteLength) break;
-        
-        packetNum++;
-        const packet = {
-          packet_num: packetNum,
-          timestamp: tsSec + (tsUsec / 1000000),
-          src_ip: 'Unknown',
-          dst_ip: 'Unknown',
-          src_port: 0,
-          dst_port: 0,
-          protocol: 'Unknown',
-          length: inclLen,
-          flags: [],
-          payload: '',
-          raw_data: new Uint8Array(arrayBuffer, offset, inclLen)
-        };
-        
-        if (inclLen >= 34) {
-          const etherType = dataView.getUint16(offset + 12, false);
-          if (etherType === 0x0800) {
-            const ipHeaderLen = (dataView.getUint8(offset + 14) & 0x0F) * 4;
+        if (etherType === 0x0800) { // IPv4
+          if (inclLen >= 34) { // Minimum IPv4 packet
+            // Parse IPv4 header
+            const ipHeaderStart = offset + 14;
+            const ipVersion = (dataView.getUint8(ipHeaderStart) >> 4) & 0x0F;
+            const ipHeaderLen = (dataView.getUint8(ipHeaderStart) & 0x0F) * 4;
             
-            packet.src_ip = [
-              dataView.getUint8(offset + 26),
-              dataView.getUint8(offset + 27),
-              dataView.getUint8(offset + 28),
-              dataView.getUint8(offset + 29)
-            ].join('.');
-            
-            packet.dst_ip = [
-              dataView.getUint8(offset + 30),
-              dataView.getUint8(offset + 31),
-              dataView.getUint8(offset + 32),
-              dataView.getUint8(offset + 33)
-            ].join('.');
-            
-            const ipProto = dataView.getUint8(offset + 23);
-            if (ipProto === 6) packet.protocol = 'TCP';
-            else if (ipProto === 17) packet.protocol = 'UDP';
-            else if (ipProto === 1) packet.protocol = 'ICMP';
-            
-            if ((ipProto === 6 || ipProto === 17) && inclLen >= offset + 14 + ipHeaderLen + 4) {
-              const transportOffset = offset + 14 + ipHeaderLen;
-              packet.src_port = dataView.getUint16(transportOffset, false);
-              packet.dst_port = dataView.getUint16(transportOffset + 2, false);
+            if (ipVersion === 4 && ipHeaderLen >= 20) {
+              // Extract source IP (bytes 12-15 of IP header)
+              packet.src_ip = [
+                dataView.getUint8(ipHeaderStart + 12),
+                dataView.getUint8(ipHeaderStart + 13),
+                dataView.getUint8(ipHeaderStart + 14),
+                dataView.getUint8(ipHeaderStart + 15)
+              ].join('.');
               
-              if (ipProto === 6 && inclLen >= transportOffset + 14) {
-                const tcpFlags = dataView.getUint8(transportOffset + 13);
-                if (tcpFlags & 0x02) packet.flags.push('SYN');
-                if (tcpFlags & 0x10) packet.flags.push('ACK');
-                if (tcpFlags & 0x01) packet.flags.push('FIN');
-                if (tcpFlags & 0x04) packet.flags.push('RST');
-                if (tcpFlags & 0x08) packet.flags.push('PSH');
+              // Extract destination IP (bytes 16-19 of IP header)
+              packet.dst_ip = [
+                dataView.getUint8(ipHeaderStart + 16),
+                dataView.getUint8(ipHeaderStart + 17),
+                dataView.getUint8(ipHeaderStart + 18),
+                dataView.getUint8(ipHeaderStart + 19)
+              ].join('.');
+              
+              // Get protocol (byte 9 of IP header)
+              const ipProto = dataView.getUint8(ipHeaderStart + 9);
+              
+              if (ipProto === 6) packet.protocol = 'TCP';
+              else if (ipProto === 17) packet.protocol = 'UDP';
+              else if (ipProto === 1) packet.protocol = 'ICMP';
+              else packet.protocol = `IP(${ipProto})`;
+              
+              // Parse transport layer (TCP/UDP)
+              if ((ipProto === 6 || ipProto === 17) && inclLen >= 14 + ipHeaderLen + 4) {
+                const transportOffset = ipHeaderStart + ipHeaderLen;
+                
+                // Ports are always big-endian in network protocols
+                packet.src_port = dataView.getUint16(transportOffset, false);
+                packet.dst_port = dataView.getUint16(transportOffset + 2, false);
+                
+                // TCP flags
+                if (ipProto === 6 && inclLen >= 14 + ipHeaderLen + 14) {
+                  const tcpFlags = dataView.getUint8(transportOffset + 13);
+                  if (tcpFlags & 0x02) packet.flags.push('SYN');
+                  if (tcpFlags & 0x10) packet.flags.push('ACK');
+                  if (tcpFlags & 0x01) packet.flags.push('FIN');
+                  if (tcpFlags & 0x04) packet.flags.push('RST');
+                  if (tcpFlags & 0x08) packet.flags.push('PSH');
+                  if (tcpFlags & 0x20) packet.flags.push('URG');
+                }
+                
+                // Extract payload (if any)
+                const headerSize = 14 + ipHeaderLen + (ipProto === 6 ? ((dataView.getUint8(transportOffset + 12) >> 4) * 4) : 8);
+                if (inclLen > headerSize) {
+                  const payloadSize = Math.min(inclLen - headerSize, 100); // Limit to first 100 bytes
+                  const payloadBytes = new Uint8Array(arrayBuffer, offset + headerSize, payloadSize);
+                  // Try to decode as ASCII/UTF-8
+                  try {
+                    const decoder = new TextDecoder('utf-8', { fatal: false });
+                    packet.payload = decoder.decode(payloadBytes).replace(/[^\x20-\x7E]/g, '.');
+                  } catch (e) {
+                    packet.payload = Array.from(payloadBytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
+                  }
+                }
               }
             }
           }
+        } else if (etherType === 0x0806) { // ARP
+          packet.protocol = 'ARP';
+        } else if (etherType === 0x86DD) { // IPv6
+          packet.protocol = 'IPv6';
         }
-        
-        packetList.push(packet);
-        offset += inclLen;
-      } catch (e) {
-        console.error('Packet parse error:', e);
-        break;
       }
+      
+      packetList.push(packet);
+      offset += inclLen; // Move to next packet
+      
+    } catch (e) {
+      console.error(`Error parsing packet ${packetNum + 1}:`, e);
+      break;
     }
+  }
 
-    return packetList;
-  };
-
+  console.log(`Successfully parsed ${packetList.length} packets`);
+  return packetList;
+};
   // ============ ADD MANUAL PACKET ============
   const handleAddPacket = () => {
     if (!currentPacket.src_ip || !currentPacket.dst_ip) {
