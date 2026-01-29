@@ -21,3 +21,4 @@ const app = initializeApp(firebaseConfig);
 export const database = getDatabase(app);
 export const auth = getAuth(app);
 export default app;
+export const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours in milliseconds

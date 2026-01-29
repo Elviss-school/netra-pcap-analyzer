@@ -1,4 +1,4 @@
-// src/services/userService.js (COMPLETE FILE WITH EMAIL/PASSWORD)
+// src/services/userService.js (COMPLETE FILE WITH SESSION TIMEOUT)
 
 import { ref, set, get, update } from 'firebase/database';
 import { database, auth } from '../firebase';
@@ -48,7 +48,10 @@ export const userService = {
       createdAt: Date.now()
     });
 
-    console.log('✅ User signed up:', username, role);
+    // ===== STORE LOGIN TIME FOR NEW USER =====
+    localStorage.setItem(`loginTime_${userId}`, Date.now().toString());
+    console.log(`✅ User signed up: ${username} (${role})`);
+    
     return userCredential.user;
   },
 
@@ -78,8 +81,34 @@ export const userService = {
     // Sign in with email and password
     const userCredential = await signInWithEmailAndPassword(auth, profile.email, password);
     
-    console.log('✅ User logged in:', username);
+    // ===== STORE LOGIN TIME =====
+    localStorage.setItem(`loginTime_${userCredential.user.uid}`, Date.now().toString());
+    console.log(`✅ User logged in: ${username}. Session expires in 24 hours.`);
+    
     return userCredential.user;
+  },
+
+  // ===== NEW FUNCTION: CHECK IF SESSION EXPIRED =====
+  isSessionExpired(userId) {
+    const loginTime = localStorage.getItem(`loginTime_${userId}`);
+    
+    if (!loginTime) {
+      console.log('⚠️ No login time found - session expired');
+      return true; // No login time = expired
+    }
+    
+    const now = Date.now();
+    const elapsed = now - parseInt(loginTime);
+    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000; // 24 hours
+    
+    const isExpired = elapsed > TWENTY_FOUR_HOURS;
+    
+    if (isExpired) {
+      const hoursElapsed = (elapsed / (60 * 60 * 1000)).toFixed(1);
+      console.log(`⏰ Session expired! Elapsed: ${hoursElapsed} hours`);
+    }
+    
+    return isExpired;
   },
 
   // Get user role
@@ -105,8 +134,16 @@ export const userService = {
   // Logout
   async logout() {
     try {
+      const currentUser = auth.currentUser;
+      
+      // ===== CLEAR LOGIN TIME =====
+      if (currentUser) {
+        localStorage.removeItem(`loginTime_${currentUser.uid}`);
+        console.log(`🧹 Cleared session data for user: ${currentUser.uid}`);
+      }
+      
       await signOut(auth);
-      console.log('✅ Logged out');
+      console.log('✅ User logged out successfully');
     } catch (error) {
       console.error('❌ Logout error:', error);
       throw error;

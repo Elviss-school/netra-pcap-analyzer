@@ -183,50 +183,67 @@ export default function App() {
   const [kahootPlayerName, setKahootPlayerName] = useState(null);
   const [kahootView, setKahootView] = useState('join');
 
-  // ===== FIREBASE AUTH LISTENER =====
-  useEffect(() => {
-    console.log('🔄 Setting up Firebase auth listener...');
-    
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        console.log('✅ User authenticated:', currentUser.uid);
-        setUser(currentUser);
+// ===== FIREBASE AUTH LISTENER =====
+useEffect(() => {
+  console.log('🔄 Setting up Firebase auth listener...');
+  
+  const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    if (currentUser) {
+      console.log('✅ User authenticated:', currentUser.uid);
+      
+      // ===== CHECK IF SESSION HAS EXPIRED (24 HOURS) =====
+      if (userService.isSessionExpired(currentUser.uid)) {
+        console.log('⏰ Session expired (24 hours). Force logging out...');
+        alert('⏰ Your session has expired after 24 hours. Please log in again.');
         
-        // Load user profile
-        try {
-          const profile = await userService.getUserProfile(currentUser.uid);
-          
-          if (profile) {
-            console.log('✅ Profile loaded:', profile);
-            setUserProfile(profile);
-            setUserName(profile.username);
-            setUserRole(profile.role);
-            setIsAuthenticated(true);
-          } else {
-            console.warn('⚠️ No profile found for user');
-            setIsAuthenticated(false);
-          }
-        } catch (err) {
-          console.error('❌ Error loading profile:', err);
-          setIsAuthenticated(false);
-        }
-      } else {
-        console.log('⚠️ No user authenticated');
+        // Force logout
+        await userService.logout();
         setUser(null);
         setUserProfile(null);
         setUserName('');
         setUserRole('student');
         setIsAuthenticated(false);
+        setAuthLoading(false);
+        return;
       }
       
-      setAuthLoading(false);
-    });
+      setUser(currentUser);
+      
+      // Load user profile
+      try {
+        const profile = await userService.getUserProfile(currentUser.uid);
+        
+        if (profile) {
+          console.log('✅ Profile loaded:', profile);
+          setUserProfile(profile);
+          setUserName(profile.username);
+          setUserRole(profile.role);
+          setIsAuthenticated(true);
+        } else {
+          console.warn('⚠️ No profile found for user');
+          setIsAuthenticated(false);
+        }
+      } catch (err) {
+        console.error('❌ Error loading profile:', err);
+        setIsAuthenticated(false);
+      }
+    } else {
+      console.log('⚠️ No user authenticated');
+      setUser(null);
+      setUserProfile(null);
+      setUserName('');
+      setUserRole('student');
+      setIsAuthenticated(false);
+    }
+    
+    setAuthLoading(false);
+  });
 
-    return () => {
-      console.log('🔄 Cleaning up auth listener');
-      unsubscribe();
-    };
-  }, []);
+  return () => {
+    console.log('🔄 Cleaning up auth listener');
+    unsubscribe();
+  };
+}, []);
 
   /**
    * Handle Auth Success
