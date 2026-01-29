@@ -601,59 +601,162 @@ const parsePcapFile = (arrayBuffer) => {
   };
 
   // ============ GENERATE SYNTHETIC PACKET DATA ============
-  const generateSyntheticPacket = (packet) => {
-    const data = new Uint8Array(packet.length);
+const generateSyntheticPacket = (packet) => {
+  const data = new Uint8Array(packet.length);
+  
+  // ===== ETHERNET HEADER (14 bytes) =====
+  data.set([0xff, 0xff, 0xff, 0xff, 0xff, 0xff], 0);  // Dst MAC (broadcast)
+  data.set([0x00, 0x00, 0x00, 0x00, 0x00, 0x00], 6);  // Src MAC
+  
+  // ===== HANDLE DIFFERENT PROTOCOLS =====
+  
+  // ***** ARP PACKETS *****
+  if (packet.protocol === 'ARP') {
+    data.set([0x08, 0x06], 12);  // EtherType: ARP
     
-    data.set([0xff, 0xff, 0xff, 0xff, 0xff, 0xff], 0);
-    data.set([0x00, 0x00, 0x00, 0x00, 0x00, 0x00], 6);
-    data.set([0x08, 0x00], 12);
+    // ARP Header (28 bytes minimum)
+    data.set([0x00, 0x01], 14);  // Hardware type: Ethernet
+    data.set([0x08, 0x00], 16);  // Protocol type: IPv4
+    data[18] = 0x06;  // Hardware size: 6 (MAC)
+    data[19] = 0x04;  // Protocol size: 4 (IPv4)
+    data.set([0x00, 0x02], 20);  // Opcode: Reply (0x01 = Request, 0x02 = Reply)
     
-    data[14] = 0x45;
-    data[15] = 0x00;
-    data.set([0x00, Math.min(packet.length, 255)], 16);
-    data.set([0x00, 0x00], 18);
-    data.set([0x40, 0x00], 20);
-    data[22] = 0x40;
-    data[23] = packet.protocol === 'TCP' ? 0x06 : packet.protocol === 'UDP' ? 0x11 : 0x01;
-    data.set([0x00, 0x00], 24);
+    // Sender MAC (6 bytes)
+    data.set([0x00, 0x00, 0x00, 0x00, 0x00, 0x00], 22);
     
+    // Sender IP (4 bytes)
     const srcIP = packet.src_ip.split('.').map(Number);
-    data.set(srcIP, 26);
+    data.set(srcIP, 28);
     
+    // Target MAC (6 bytes)
+    data.set([0xff, 0xff, 0xff, 0xff, 0xff, 0xff], 32);
+    
+    // Target IP (4 bytes)
     const dstIP = packet.dst_ip.split('.').map(Number);
-    data.set(dstIP, 30);
+    data.set(dstIP, 38);
     
-    if (packet.protocol === 'TCP' || packet.protocol === 'UDP') {
-      data.set([(packet.src_port >> 8) & 0xff, packet.src_port & 0xff], 34);
-      data.set([(packet.dst_port >> 8) & 0xff, packet.dst_port & 0xff], 36);
-      
-      if (packet.protocol === 'TCP') {
-        data.set([0x00, 0x00, 0x00, 0x00], 38);
-        data.set([0x00, 0x00, 0x00, 0x00], 42);
-        data[46] = 0x50;
-        
-        let flagByte = 0;
-        if (packet.flags.includes('FIN')) flagByte |= 0x01;
-        if (packet.flags.includes('SYN')) flagByte |= 0x02;
-        if (packet.flags.includes('RST')) flagByte |= 0x04;
-        if (packet.flags.includes('PSH')) flagByte |= 0x08;
-        if (packet.flags.includes('ACK')) flagByte |= 0x10;
-        data[47] = flagByte;
-        
-        data.set([0xff, 0xff], 48);
-        data.set([0x00, 0x00], 50);
-        data.set([0x00, 0x00], 52);
-      }
-    }
-    
+    // Payload (if any) starts at 42
     if (packet.payload) {
       const encoder = new TextEncoder();
       const payloadBytes = encoder.encode(packet.payload);
-      data.set(payloadBytes, 54);
+      data.set(payloadBytes.slice(0, packet.length - 42), 42);
     }
     
     return data;
-  };
+  }
+  
+  // ***** IPv4-BASED PACKETS (TCP/UDP/ICMP) *****
+  data.set([0x08, 0x00], 12);  // EtherType: IPv4
+  
+  // ===== IP HEADER (20 bytes, starts at offset 14) =====
+  data[14] = 0x45;  // Version 4, Header length 5 (20 bytes)
+  data[15] = 0x00;  // DSCP/ECN
+  
+  // Total length (IP header + transport header + payload)
+  const ipTotalLen = packet.length - 14;  // Everything after Ethernet
+  data.set([ipTotalLen >> 8, ipTotalLen & 0xff], 16);
+  
+  data.set([0x00, 0x01], 18);  // Identification
+  data.set([0x40, 0x00], 20);  // Flags (Don't Fragment), Fragment offset
+  data[22] = 0x40;  // TTL: 64
+  
+  // Protocol field
+  if (packet.protocol === 'TCP') {
+    data[23] = 0x06;  // TCP
+  } else if (packet.protocol === 'UDP') {
+    data[23] = 0x11;  // UDP
+  } else if (packet.protocol === 'ICMP') {
+    data[23] = 0x01;  // ICMP
+  } else {
+    console.warn(`Unknown protocol: ${packet.protocol}, defaulting to TCP`);
+    data[23] = 0x06;  // Default to TCP
+  }
+  
+  data.set([0x00, 0x00], 24);  // Header checksum (0 = unchecked)
+  
+  // Source IP (4 bytes)
+  const srcIP = packet.src_ip.split('.').map(Number);
+  data.set(srcIP, 26);
+  
+  // Destination IP (4 bytes)
+  const dstIP = packet.dst_ip.split('.').map(Number);
+  data.set(dstIP, 30);
+  
+  // ===== TRANSPORT/ICMP HEADER (starts at offset 34) =====
+  
+  // ***** TCP HEADER *****
+  if (packet.protocol === 'TCP') {
+    // TCP Header (20 bytes minimum)
+    data.set([(packet.src_port >> 8) & 0xff, packet.src_port & 0xff], 34);  // Src port
+    data.set([(packet.dst_port >> 8) & 0xff, packet.dst_port & 0xff], 36);  // Dst port
+    data.set([0x00, 0x00, 0x00, 0x01], 38);  // Sequence number
+    data.set([0x00, 0x00, 0x00, 0x00], 42);  // Ack number
+    data[46] = 0x50;  // Data offset (5 * 4 = 20 bytes), Reserved
+    
+    // TCP Flags
+    let flagByte = 0;
+    if (packet.flags.includes('FIN')) flagByte |= 0x01;
+    if (packet.flags.includes('SYN')) flagByte |= 0x02;
+    if (packet.flags.includes('RST')) flagByte |= 0x04;
+    if (packet.flags.includes('PSH')) flagByte |= 0x08;
+    if (packet.flags.includes('ACK')) flagByte |= 0x10;
+    if (packet.flags.includes('URG')) flagByte |= 0x20;
+    data[47] = flagByte;
+    
+    data.set([0xff, 0xff], 48);  // Window size (65535)
+    data.set([0x00, 0x00], 50);  // Checksum
+    data.set([0x00, 0x00], 52);  // Urgent pointer
+    
+    // Payload starts at offset 54 (14 Ethernet + 20 IP + 20 TCP)
+    if (packet.payload) {
+      const encoder = new TextEncoder();
+      const payloadBytes = encoder.encode(packet.payload);
+      const maxPayload = packet.length - 54;
+      data.set(payloadBytes.slice(0, maxPayload), 54);
+    }
+  }
+  
+  // ***** UDP HEADER *****
+  else if (packet.protocol === 'UDP') {
+    // UDP Header (8 bytes)
+    data.set([(packet.src_port >> 8) & 0xff, packet.src_port & 0xff], 34);  // Src port
+    data.set([(packet.dst_port >> 8) & 0xff, packet.dst_port & 0xff], 36);  // Dst port
+    
+    // ✅ FIX: UDP length = UDP header (8) + payload length
+    // NOT: total packet length - 34!
+    const udpLen = packet.length - 14 - 20;  // Subtract Ethernet + IP headers
+    data.set([(udpLen >> 8) & 0xff, udpLen & 0xff], 38);  // Length
+    data.set([0x00, 0x00], 40);  // Checksum
+    
+    // Payload starts at offset 42 (14 Ethernet + 20 IP + 8 UDP)
+    if (packet.payload) {
+      const encoder = new TextEncoder();
+      const payloadBytes = encoder.encode(packet.payload);
+      const maxPayload = packet.length - 42;
+      data.set(payloadBytes.slice(0, maxPayload), 42);
+    }
+  }
+  
+  // ***** ICMP HEADER *****
+  else if (packet.protocol === 'ICMP') {
+    // ✅ FIX: Add proper ICMP header (8 bytes minimum)
+    data[34] = 0x08;  // Type: Echo Request (0x08 = ping request, 0x00 = ping reply)
+    data[35] = 0x00;  // Code: 0
+    data.set([0x00, 0x00], 36);  // Checksum (0 = unchecked)
+    data.set([0x00, 0x01], 38);  // Identifier
+    data.set([0x00, 0x01], 40);  // Sequence number
+    
+    // Payload starts at offset 42 (14 Ethernet + 20 IP + 8 ICMP)
+    if (packet.payload) {
+      const encoder = new TextEncoder();
+      const payloadBytes = encoder.encode(packet.payload);
+      const maxPayload = packet.length - 42;
+      data.set(payloadBytes.slice(0, maxPayload), 42);
+    }
+  }
+  
+  return data;
+};
 
   // ============ DOWNLOAD PCAP FILE ============
   const handleDownload = () => {

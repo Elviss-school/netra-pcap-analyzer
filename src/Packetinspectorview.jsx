@@ -13,18 +13,48 @@ const PacketInspectorView = ({ studentMode, pcapData }) => {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showHelp, setShowHelp] = useState(studentMode);
 
+  /**
+   * FIXED: Filtered Packets - Now properly handles TCP-based protocols
+   */
   const filteredPackets = useMemo(() => {
     if (!pcapData || !pcapData.packets) return [];
     if (!filterText) return pcapData.packets;
 
     const filter = filterText.toLowerCase();
+    
+    // Define TCP-based and UDP-based protocols
+    const tcpProtocols = ['TCP', 'HTTP', 'HTTPS', 'SSH', 'FTP', 'FTP-DATA', 'TELNET', 
+                          'SMTP', 'POP3', 'IMAP', 'IMAPS', 'POP3S', 'SMTPS', 
+                          'SMTP-SUBMISSION', 'MYSQL', 'POSTGRESQL', 'MSSQL', 'MONGODB',
+                          'REDIS', 'RDP', 'VNC', 'SMB', 'IRC', 'NNTP', 'SIP',
+                          'HTTP-ALT', 'HTTP-PROXY', 'HTTPS-ALT', 'HTTP-ALT2',
+                          'ELASTICSEARCH', 'ORACLE', 'PPTP', 'TCP-EPHEMERAL'];
+    
+    const udpProtocols = ['UDP', 'DNS', 'DHCP', 'TFTP', 'NTP', 'NETBIOS', 'SNMP',
+                          'ISAKMP', 'SYSLOG', 'RIP', 'OPENVPN', 'L2TP', 'SSDP',
+                          'NAT-T', 'MDNS', 'UDP-EPHEMERAL'];
+    
     return pcapData.packets.filter(packet => {
-      // Simple filter implementation
-      if (filter.includes('tcp') && packet.protocol !== 'TCP') return false;
-      if (filter.includes('udp') && packet.protocol !== 'UDP') return false;
-      if (filter.includes('http') && packet.protocol !== 'HTTP') return false;
-      if (filter.includes('https') && packet.protocol !== 'HTTPS') return false;
-      if (filter.includes('dns') && packet.protocol !== 'DNS') return false;
+      // FIXED: TCP filter now includes all TCP-based protocols
+      if (filter.includes('tcp')) {
+        if (!tcpProtocols.includes(packet.protocol)) return false;
+      }
+      if (filter.includes('udp')) {
+        if (!udpProtocols.includes(packet.protocol)) return false;
+      }
+      if (filter.includes('http') && !filter.includes('https')) {
+        if (packet.protocol !== 'HTTP' && packet.protocol !== 'HTTP-ALT' && 
+            packet.protocol !== 'HTTP-PROXY' && packet.protocol !== 'HTTP-ALT2') return false;
+      }
+      if (filter.includes('https')) {
+        if (packet.protocol !== 'HTTPS' && packet.protocol !== 'HTTPS-ALT') return false;
+      }
+      if (filter.includes('dns')) {
+        if (packet.protocol !== 'DNS') return false;
+      }
+      if (filter.includes('ssh')) {
+        if (packet.protocol !== 'SSH') return false;
+      }
       
       // IP filters
       if (filter.startsWith('ip.src==')) {
@@ -385,6 +415,9 @@ const PacketInspectorView = ({ studentMode, pcapData }) => {
     );
   };
 
+  /**
+   * FIXED: Render Hex Dump - Now shows REAL packet data
+   */
   const renderHexDump = () => {
     if (!selectedPacket) {
       return (
@@ -397,12 +430,21 @@ const PacketInspectorView = ({ studentMode, pcapData }) => {
       );
     }
 
-    // Generate mock hex dump based on packet data
+    // Generate REAL hex dump from packet raw_data
     const generateHexDump = () => {
       const lines = [];
-      const totalBytes = selectedPacket.packet_size;
+      const rawData = selectedPacket.raw_data;
+      
+      if (!rawData || !rawData.length) {
+        return [{
+          offset: '0000',
+          hex: '(no raw packet data available)',
+          ascii: ''
+        }];
+      }
+
       const bytesPerLine = 16;
-      const numLines = Math.ceil(totalBytes / bytesPerLine);
+      const numLines = Math.ceil(rawData.length / bytesPerLine);
 
       for (let i = 0; i < Math.min(numLines, 20); i++) {
         const offset = i * bytesPerLine;
@@ -410,9 +452,16 @@ const PacketInspectorView = ({ studentMode, pcapData }) => {
         const asciiBytes = [];
 
         for (let j = 0; j < bytesPerLine; j++) {
-          const byteVal = (offset + j) % 256;
-          hexBytes.push(byteVal.toString(16).padStart(2, '0'));
-          asciiBytes.push(byteVal >= 32 && byteVal <= 126 ? String.fromCharCode(byteVal) : '.');
+          const byteIndex = offset + j;
+          
+          if (byteIndex < rawData.length) {
+            const byteVal = rawData[byteIndex];
+            hexBytes.push(byteVal.toString(16).padStart(2, '0'));
+            asciiBytes.push(byteVal >= 32 && byteVal <= 126 ? String.fromCharCode(byteVal) : '.');
+          } else {
+            hexBytes.push('  ');
+            asciiBytes.push(' ');
+          }
         }
 
         lines.push({

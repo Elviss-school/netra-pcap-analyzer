@@ -1,4 +1,9 @@
-// src/App.jsx (COMPLETE FILE WITH PCAP CREATOR - FULLY FIXED)
+// ============================================================================
+// src/App.jsx (COMPLETE FILE WITH FIXED PCAP PARSER - ALL PROTOCOLS)
+// ============================================================================
+// This version includes comprehensive protocol detection for ALL IP protocols
+// Fixes the issue where SSH, FTP, and other protocols showed as "OTHER"
+// ============================================================================
 
 import AuthPage from './components/AuthPage';
 import KahootJoin from './components/KahootJoin';
@@ -27,6 +32,16 @@ console.log('🔄 Loading Firebase modules...');
 console.log('✅ Auth object:', auth ? 'EXISTS' : 'MISSING');
 console.log('✅ progressTracker object:', progressTracker ? 'EXISTS' : 'MISSING');
 
+/**
+ * Sidebar Item Component
+ * 
+ * Renders navigation items in the sidebar.
+ * 
+ * @param {Object} icon - Lucide icon component
+ * @param {string} label - Item label text
+ * @param {boolean} active - Whether item is currently active
+ * @param {function} onClick - Click handler
+ */
 const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
   <button
     onClick={onClick}
@@ -39,7 +54,18 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
   </button>
 );
 
-// Centered Upload Component
+/**
+ * Centered Upload Component
+ * 
+ * Full-screen upload interface shown when no PCAP is loaded.
+ * Displays upload button, progress, errors, and feature preview.
+ * 
+ * @param {function} onUploadClick - Upload button handler
+ * @param {boolean} loading - Upload in progress
+ * @param {number} progress - Upload progress percentage
+ * @param {string} error - Error message if any
+ * @param {boolean} studentMode - Show student tips
+ */
 const CenteredUpload = ({ onUploadClick, loading, progress, error, studentMode }) => (
   <div className="min-h-screen flex items-center justify-center p-6 bg-gray-900">
     <div className="max-w-2xl w-full">
@@ -131,7 +157,14 @@ const CenteredUpload = ({ onUploadClick, loading, progress, error, studentMode }
   </div>
 );
 
+/**
+ * Main App Component
+ * 
+ * Root component managing authentication, navigation, and PCAP analysis.
+ * Integrates all views, handles file uploads, and manages user state.
+ */
 export default function App() {
+  // ===== STATE =====
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [userName, setUserName] = useState('');
@@ -150,7 +183,7 @@ export default function App() {
   const [kahootPlayerName, setKahootPlayerName] = useState(null);
   const [kahootView, setKahootView] = useState('join');
 
-  // Firebase Auth Listener
+  // ===== FIREBASE AUTH LISTENER =====
   useEffect(() => {
     console.log('🔄 Setting up Firebase auth listener...');
     
@@ -195,13 +228,21 @@ export default function App() {
     };
   }, []);
 
-  // Handle auth success
+  /**
+   * Handle Auth Success
+   * 
+   * Called after successful authentication.
+   * Auth listener handles loading the profile.
+   */
   const handleAuthSuccess = async () => {
     console.log('✅ Auth success callback triggered');
-    // The auth listener will handle loading the profile
   };
 
-  // Handle logout
+  /**
+   * Handle Logout
+   * 
+   * Signs out user and clears all state.
+   */
   const handleLogout = async () => {
     try {
       await userService.logout();
@@ -224,6 +265,15 @@ export default function App() {
     }
   };
 
+  /**
+   * Parse PCAP in Browser
+   * 
+   * Handles PCAP parsing with Web Worker for large files (>10MB).
+   * Uses inline parsing for smaller files.
+   * 
+   * @param {File} file - PCAP file to parse
+   * @returns {Promise<Object>} Parsed packet data and summary
+   */
   const parsePcapInBrowser = async (file) => {
     return new Promise((resolve, reject) => {
       const fileSizeMB = file.size / (1024 * 1024);
@@ -282,10 +332,25 @@ export default function App() {
     });
   };
 
+  /**
+   * Parse PCAP Inline
+   * 
+   * Synchronous PCAP parser with COMPLETE protocol detection.
+   * Handles ALL IP protocol numbers and application-layer protocols.
+   * 
+   * @param {ArrayBuffer} arrayBuffer - PCAP file data
+   * @returns {Object} Parsed packets and summary statistics
+   * 
+   * PROTOCOL DETECTION:
+   * - ALL IP protocols (ICMP, TCP, UDP, GRE, ESP, OSPF, etc.)
+   * - 40+ application protocols by port (SSH, HTTP, FTP, RDP, MySQL, etc.)
+   * - IPv6 and ARP packets
+   * - Unknown protocols labeled as "IP-PROTO-X"
+   */
   const parsePcapInline = (arrayBuffer) => {
     const dataView = new DataView(arrayBuffer);
     
-    // ⭐ FIX: Detect magic number and endianness FIRST
+    // ===== DETECT PCAP FORMAT AND ENDIANNESS =====
     const magicNumber = dataView.getUint32(0, false);
     let littleEndian = false;
     
@@ -320,16 +385,19 @@ export default function App() {
     let icmpTypes = {};
     let lastPacketTime = 0;
     
-    let offset = 24;
+    // TCP flow protocol tracking (Wireshark-style)
+    const tcpFlowProtocols = new Map();
+    
+    let offset = 24; // Skip global header
     let startTime = null;
     let packetNum = 0;
 
     try {
       while (offset < arrayBuffer.byteLength - 16) {
-        // ⭐ FIX: Use detected endianness and add missing tsUsec
+        // ===== READ PACKET HEADER =====
         const tsSec = dataView.getUint32(offset, littleEndian);
-        const tsUsec = dataView.getUint32(offset + 4, littleEndian);  // ✅ ADDED: was missing
-        const inclLen = dataView.getUint32(offset + 8, littleEndian);  // ✅ FIXED: was hardcoded
+        const tsUsec = dataView.getUint32(offset + 4, littleEndian);
+        const inclLen = dataView.getUint32(offset + 8, littleEndian);
         
         if (inclLen > 65535 || inclLen === 0) break;
         offset += 16;
@@ -348,7 +416,9 @@ export default function App() {
           continue;
         }
         
+        // ===== PARSE ETHERNET HEADER =====
         const etherType = dataView.getUint16(offset + 12, false);
+        const rawPacketData = new Uint8Array(arrayBuffer, offset, inclLen);
         let packetInfo = {
           packet_num: ++packetNum,
           time: timestamp - startTime,
@@ -363,11 +433,13 @@ export default function App() {
           window_size: 0,
           seq_num: 0,
           payload_size: 0,
-          retransmission: false
+          retransmission: false,
+          raw_data: rawPacketData
         };
         
         packetSizes.push(inclLen);
         
+        // ===== PARSE IPv4 PACKETS (0x0800) =====
         if (etherType === 0x0800 && inclLen >= 34) {
           const ipOffset = offset + 14;
           const ipHeaderLen = (dataView.getUint8(ipOffset) & 0x0F) * 4;
@@ -395,91 +467,272 @@ export default function App() {
           payloadSizes.push(payloadSize);
           packetInfo.payload_size = payloadSize;
           
-          if (ipProto === 6 && inclLen >= ipOffset + ipHeaderLen + 20) {
-            packetInfo.protocol = 'TCP';
-            const tcpOffset = ipOffset + ipHeaderLen;
-            const srcPort = dataView.getUint16(tcpOffset, false);
-            const dstPort = dataView.getUint16(tcpOffset + 2, false);
-            const seqNum = dataView.getUint32(tcpOffset + 4, false);
-            const windowSize = dataView.getUint16(tcpOffset + 14, false);
-            const tcpFlagsValue = dataView.getUint8(tcpOffset + 13);
-            
-            packetInfo.src_port = srcPort;
-            packetInfo.dst_port = dstPort;
-            packetInfo.seq_num = seqNum;
-            packetInfo.window_size = windowSize;
-            
-            windowSizes.push(windowSize);
-            
-            const connKey = `${srcIp}:${srcPort}->${dstIp}:${dstPort}`;
-            if (seenSequences.has(connKey) && seenSequences.get(connKey) === seqNum) {
-              retransmissions++;
-              packetInfo.retransmission = true;
-            }
-            seenSequences.set(connKey, seqNum);
-            
-            let flagsArr = [];
-            if (tcpFlagsValue & 0x02) { flagsArr.push('SYN'); tcpFlags.SYN++; }
-            if (tcpFlagsValue & 0x10) { flagsArr.push('ACK'); tcpFlags.ACK++; }
-            if (tcpFlagsValue & 0x01) { flagsArr.push('FIN'); tcpFlags.FIN++; }
-            if (tcpFlagsValue & 0x04) { flagsArr.push('RST'); tcpFlags.RST++; }
-            if (tcpFlagsValue & 0x08) { flagsArr.push('PSH'); tcpFlags.PSH++; }
-            if (tcpFlagsValue & 0x20) { flagsArr.push('URG'); tcpFlags.URG++; }
-            packetInfo.flags = flagsArr.join(',');
-            
-            portActivity[dstPort] = (portActivity[dstPort] || 0) + 1;
-            
-            if (dstPort === 443 || srcPort === 443) packetInfo.protocol = 'HTTPS';
-            else if (dstPort === 80 || srcPort === 80) packetInfo.protocol = 'HTTP';
-            else if (dstPort === 22 || srcPort === 22) packetInfo.protocol = 'SSH';
-            else if (dstPort === 21 || srcPort === 21 || dstPort === 20 || srcPort === 20) packetInfo.protocol = 'FTP';
-            else if (dstPort === 3389 || srcPort === 3389) packetInfo.protocol = 'RDP';
-            else if (dstPort === 23 || srcPort === 23) packetInfo.protocol = 'Telnet';
-            else if (dstPort === 25 || srcPort === 25) packetInfo.protocol = 'SMTP';
-            else if (dstPort === 110 || srcPort === 110) packetInfo.protocol = 'POP3';
-            else if (dstPort === 143 || srcPort === 143) packetInfo.protocol = 'IMAP';
-            else if (dstPort === 3306 || srcPort === 3306) packetInfo.protocol = 'MySQL';
-            else if (dstPort === 5432 || srcPort === 5432) packetInfo.protocol = 'PostgreSQL';
-            else if (dstPort === 6379 || srcPort === 6379) packetInfo.protocol = 'Redis';
-            else if (dstPort === 27017 || srcPort === 27017) packetInfo.protocol = 'MongoDB';
-            else if (dstPort === 8080 || srcPort === 8080) packetInfo.protocol = 'HTTP-Alt';
-            else if (dstPort === 8443 || srcPort === 8443) packetInfo.protocol = 'HTTPS-Alt';
-            else if (dstPort >= 49152) packetInfo.protocol = 'TCP-Ephemeral';
-          } else if (ipProto === 17 && inclLen >= ipOffset + ipHeaderLen + 8) {
-            packetInfo.protocol = 'UDP';
-            const udpOffset = ipOffset + ipHeaderLen;
-            const srcPort = dataView.getUint16(udpOffset, false);
-            const dstPort = dataView.getUint16(udpOffset + 2, false);
-            
-            packetInfo.src_port = srcPort;
-            packetInfo.dst_port = dstPort;
-            
-            portActivity[dstPort] = (portActivity[dstPort] || 0) + 1;
-            
-            if (dstPort === 53 || srcPort === 53) packetInfo.protocol = 'DNS';
-            else if (dstPort === 67 || dstPort === 68) packetInfo.protocol = 'DHCP';
-            else if (dstPort === 123 || srcPort === 123) packetInfo.protocol = 'NTP';
-            else if (dstPort === 161 || dstPort === 162) packetInfo.protocol = 'SNMP';
-            else if (dstPort === 514 || srcPort === 514) packetInfo.protocol = 'Syslog';
-            else if (dstPort === 5353 || srcPort === 5353) packetInfo.protocol = 'mDNS';
-            else if (dstPort === 1900 || srcPort === 1900) packetInfo.protocol = 'SSDP';
-            else if (dstPort >= 49152) packetInfo.protocol = 'UDP-Ephemeral';
-          } else if (ipProto === 1) {
-            packetInfo.protocol = 'ICMP';
-            const icmpOffset = ipOffset + ipHeaderLen;
-            if (icmpOffset < offset + inclLen) {
-              const icmpType = dataView.getUint8(icmpOffset);
-              icmpTypes[icmpType] = (icmpTypes[icmpType] || 0) + 1;
-            }
-          } else if (ipProto === 2) {
-            packetInfo.protocol = 'IGMP';
-          } else if (ipProto === 47) {
-            packetInfo.protocol = 'GRE';
-          } else if (ipProto === 50) {
-            packetInfo.protocol = 'ESP';
-          } else if (ipProto === 51) {
-            packetInfo.protocol = 'AH';
+          // ===== IDENTIFY PROTOCOL BY IP PROTOCOL NUMBER =====
+          switch (ipProto) {
+            case 1: // ICMP
+              packetInfo.protocol = 'ICMP';
+              const icmpOffset = ipOffset + ipHeaderLen;
+              if (icmpOffset < offset + inclLen) {
+                const icmpType = dataView.getUint8(icmpOffset);
+                icmpTypes[icmpType] = (icmpTypes[icmpType] || 0) + 1;
+              }
+              break;
+
+            case 2: // IGMP
+              packetInfo.protocol = 'IGMP';
+              break;
+
+            case 3: // GGP
+              packetInfo.protocol = 'GGP';
+              break;
+
+            case 4: // IP-IN-IP
+              packetInfo.protocol = 'IP-in-IP';
+              break;
+
+            case 6: // TCP with port-based application detection
+              const tcpHeaderStart = 14 + ipHeaderLen;
+
+               if (inclLen >= tcpHeaderStart + 20) {
+               packetInfo.protocol = 'TCP';
+                packetInfo.base_protocol = 'TCP';
+
+                const tcpOffset = offset + tcpHeaderStart;
+                const srcPort = dataView.getUint16(tcpOffset, false);
+                const dstPort = dataView.getUint16(tcpOffset + 2, false);
+                const seqNum = dataView.getUint32(tcpOffset + 4, false);
+                const windowSize = dataView.getUint16(tcpOffset + 14, false);
+                const tcpFlagsValue = dataView.getUint8(tcpOffset + 13);
+                
+                packetInfo.src_port = srcPort;
+                packetInfo.dst_port = dstPort;
+                packetInfo.seq_num = seqNum;
+                packetInfo.window_size = windowSize;
+                
+                windowSizes.push(windowSize);
+                
+                // Retransmission detection
+                const connKey = `${srcIp}:${srcPort}->${dstIp}:${dstPort}`;
+                if (seenSequences.has(connKey) && seenSequences.get(connKey) === seqNum) {
+                  retransmissions++;
+                  packetInfo.retransmission = true;
+                }
+                seenSequences.set(connKey, seqNum);
+                
+                // Parse TCP flags
+                let flagsArr = [];
+                if (tcpFlagsValue & 0x02) { flagsArr.push('SYN'); tcpFlags.SYN++; }
+                if (tcpFlagsValue & 0x10) { flagsArr.push('ACK'); tcpFlags.ACK++; }
+                if (tcpFlagsValue & 0x01) { flagsArr.push('FIN'); tcpFlags.FIN++; }
+                if (tcpFlagsValue & 0x04) { flagsArr.push('RST'); tcpFlags.RST++; }
+                if (tcpFlagsValue & 0x08) { flagsArr.push('PSH'); tcpFlags.PSH++; }
+                if (tcpFlagsValue & 0x20) { flagsArr.push('URG'); tcpFlags.URG++; }
+                packetInfo.flags = flagsArr.join(',');
+                
+                portActivity[dstPort] = (portActivity[dstPort] || 0) + 1;
+                
+                // ===== TCP APPLICATION PROTOCOL DETECTION BY PORT =====
+                // Track application protocol per TCP flow (Wireshark-style)
+                const flowKey = [srcIp, srcPort, dstIp, dstPort].sort().join('|');
+
+                // Reuse protocol if flow already classified
+                if (tcpFlowProtocols.has(flowKey)) {
+                  packetInfo.protocol = tcpFlowProtocols.get(flowKey);
+                } else {
+                  // Application protocol detection (ports)
+                  let detectedProtocol = 'TCP';
+                  
+                  if (dstPort === 20 || srcPort === 20) detectedProtocol = 'FTP-DATA';
+                  else if (dstPort === 21 || srcPort === 21) detectedProtocol = 'FTP';
+                  else if (dstPort === 22 || srcPort === 22) detectedProtocol = 'SSH';
+                  else if (dstPort === 23 || srcPort === 23) detectedProtocol = 'TELNET';
+                  else if (dstPort === 25 || srcPort === 25) detectedProtocol = 'SMTP';
+                  else if (dstPort === 53 || srcPort === 53) detectedProtocol = 'DNS';
+                  else if (dstPort === 80 || srcPort === 80) detectedProtocol = 'HTTP';
+                  else if (dstPort === 110 || srcPort === 110) detectedProtocol = 'POP3';
+                  else if (dstPort === 119 || srcPort === 119) detectedProtocol = 'NNTP';
+                  else if (dstPort === 143 || srcPort === 143) detectedProtocol = 'IMAP';
+                  else if (dstPort === 161 || srcPort === 161) detectedProtocol = 'SNMP';
+                  else if (dstPort === 194 || srcPort === 194) detectedProtocol = 'IRC';
+                  else if (dstPort === 443 || srcPort === 443) detectedProtocol = 'HTTPS';
+                  else if (dstPort === 445 || srcPort === 445) detectedProtocol = 'SMB';
+                  else if (dstPort === 465 || srcPort === 465) detectedProtocol = 'SMTPS';
+                  else if (dstPort === 587 || srcPort === 587) detectedProtocol = 'SMTP-SUBMISSION';
+                  else if (dstPort === 993 || srcPort === 993) detectedProtocol = 'IMAPS';
+                  else if (dstPort === 995 || srcPort === 995) detectedProtocol = 'POP3S';
+                  else if (dstPort === 1433 || srcPort === 1433) detectedProtocol = 'MSSQL';
+                  else if (dstPort === 1521 || srcPort === 1521) detectedProtocol = 'ORACLE';
+                  else if (dstPort === 1723 || srcPort === 1723) detectedProtocol = 'PPTP';
+                  else if (dstPort === 3306 || srcPort === 3306) detectedProtocol = 'MYSQL';
+                  else if (dstPort === 3389 || srcPort === 3389) detectedProtocol = 'RDP';
+                  else if (dstPort === 5060 || srcPort === 5060 || dstPort === 5061 || srcPort === 5061) detectedProtocol = 'SIP';
+                  else if (dstPort === 5432 || srcPort === 5432) detectedProtocol = 'POSTGRESQL';
+                  else if (dstPort === 5900 || srcPort === 5900) detectedProtocol = 'VNC';
+                  else if (dstPort === 6379 || srcPort === 6379) detectedProtocol = 'REDIS';
+                  else if (dstPort === 8000 || srcPort === 8000) detectedProtocol = 'HTTP-ALT';
+                  else if (dstPort === 8080 || srcPort === 8080) detectedProtocol = 'HTTP-PROXY';
+                  else if (dstPort === 8443 || srcPort === 8443) detectedProtocol = 'HTTPS-ALT';
+                  else if (dstPort === 8888 || srcPort === 8888) detectedProtocol = 'HTTP-ALT2';
+                  else if (dstPort === 9200 || srcPort === 9200) detectedProtocol = 'ELASTICSEARCH';
+                  else if (dstPort === 27017 || srcPort === 27017) detectedProtocol = 'MONGODB';
+                  // Only mark as ephemeral if BOTH ports are ephemeral
+                  else if (dstPort >= 49152 && srcPort >= 49152) {
+                    detectedProtocol = 'TCP-EPHEMERAL';
+                  }
+                  
+                  // Store the protocol for this flow
+                  tcpFlowProtocols.set(flowKey, detectedProtocol);
+                  packetInfo.protocol = detectedProtocol;
+                }
+              } else {
+                packetInfo.protocol = 'TCP';
+              }
+              break;
+
+            case 8: // EGP
+              packetInfo.protocol = 'EGP';
+              break;
+
+            case 9: // IGP
+              packetInfo.protocol = 'IGP';
+              break;
+
+            case 17: // UDP with port-based application detection
+              if (inclLen >= ipOffset + ipHeaderLen + 8) {
+                packetInfo.protocol = 'UDP';
+                const udpOffset = ipOffset + ipHeaderLen;
+                const srcPort = dataView.getUint16(udpOffset, false);
+                const dstPort = dataView.getUint16(udpOffset + 2, false);
+                
+                packetInfo.src_port = srcPort;
+                packetInfo.dst_port = dstPort;
+                
+                portActivity[dstPort] = (portActivity[dstPort] || 0) + 1;
+                
+                // ===== UDP APPLICATION PROTOCOL DETECTION BY PORT =====
+                if (dstPort === 53 || srcPort === 53) packetInfo.protocol = 'DNS';
+                else if (dstPort === 67 || dstPort === 68 || srcPort === 67 || srcPort === 68) packetInfo.protocol = 'DHCP';
+                else if (dstPort === 69 || srcPort === 69) packetInfo.protocol = 'TFTP';
+                else if (dstPort === 123 || srcPort === 123) packetInfo.protocol = 'NTP';
+                else if (dstPort === 137 || dstPort === 138 || srcPort === 137 || srcPort === 138) packetInfo.protocol = 'NETBIOS';
+                else if (dstPort === 161 || dstPort === 162 || srcPort === 161 || srcPort === 162) packetInfo.protocol = 'SNMP';
+                else if (dstPort === 500 || srcPort === 500) packetInfo.protocol = 'ISAKMP';
+                else if (dstPort === 514 || srcPort === 514) packetInfo.protocol = 'SYSLOG';
+                else if (dstPort === 520 || srcPort === 520) packetInfo.protocol = 'RIP';
+                else if (dstPort === 1194 || srcPort === 1194) packetInfo.protocol = 'OPENVPN';
+                else if (dstPort === 1701 || srcPort === 1701) packetInfo.protocol = 'L2TP';
+                else if (dstPort === 1900 || srcPort === 1900) packetInfo.protocol = 'SSDP';
+                else if (dstPort === 4500 || srcPort === 4500) packetInfo.protocol = 'NAT-T';
+                else if (dstPort === 5353 || srcPort === 5353) packetInfo.protocol = 'MDNS';
+                // Only mark as ephemeral if BOTH ports are ephemeral
+                else if (dstPort >= 49152 && srcPort >= 49152) {
+                  packetInfo.protocol = 'UDP-EPHEMERAL';
+                }
+              } else {
+                packetInfo.protocol = 'UDP';
+              }
+              break;
+
+            case 27: // RDP (Reliable Datagram Protocol)
+              packetInfo.protocol = 'RDP';
+              break;
+
+            case 41: // IPv6
+              packetInfo.protocol = 'IPv6';
+              break;
+
+            case 43: // IPv6-ROUTE
+              packetInfo.protocol = 'IPv6-Route';
+              break;
+
+            case 44: // IPv6-FRAG
+              packetInfo.protocol = 'IPv6-Frag';
+              break;
+
+            case 47: // GRE
+              packetInfo.protocol = 'GRE';
+              break;
+
+            case 50: // ESP
+              packetInfo.protocol = 'ESP';
+              break;
+
+            case 51: // AH
+              packetInfo.protocol = 'AH';
+              break;
+
+            case 58: // ICMPv6
+              packetInfo.protocol = 'ICMPv6';
+              break;
+
+            case 88: // EIGRP
+              packetInfo.protocol = 'EIGRP';
+              break;
+
+            case 89: // OSPF
+              packetInfo.protocol = 'OSPF';
+              break;
+
+            case 94: // IPIP
+              packetInfo.protocol = 'IPIP';
+              break;
+
+            case 112: // VRRP
+              packetInfo.protocol = 'VRRP';
+              break;
+
+            case 115: // L2TP
+              packetInfo.protocol = 'L2TP';
+              break;
+
+            case 132: // SCTP
+              packetInfo.protocol = 'SCTP';
+              if (inclLen >= ipOffset + ipHeaderLen + 12) {
+                const sctpHeaderOffset = ipOffset + ipHeaderLen;
+                packetInfo.src_port = dataView.getUint16(sctpHeaderOffset, false);
+                packetInfo.dst_port = dataView.getUint16(sctpHeaderOffset + 2, false);
+              }
+              break;
+
+            case 136: // UDPLite
+              packetInfo.protocol = 'UDPLite';
+              break;
+
+            case 137: // MPLS-in-IP
+              packetInfo.protocol = 'MPLS-in-IP';
+              break;
+
+            default:
+              // Unknown IP protocol
+              packetInfo.protocol = `IP-PROTO-${ipProto}`;
+              console.warn(`⚠️ Unknown IP protocol: ${ipProto}`);
+              break;
           }
+
+        // ===== PARSE IPv6 PACKETS (0x86DD) =====
+        } else if (etherType === 0x86DD) {
+          const ipv6HeaderOffset = offset + 14;
+          if (inclLen >= ipv6HeaderOffset + 40) {
+            const ipv6Proto = dataView.getUint8(ipv6HeaderOffset + 6);
+            
+            packetInfo.protocol = 'IPv6';
+            if (ipv6Proto === 6) packetInfo.protocol = 'IPv6-TCP';
+            else if (ipv6Proto === 17) packetInfo.protocol = 'IPv6-UDP';
+            else if (ipv6Proto === 58) packetInfo.protocol = 'ICMPv6';
+            
+            packetInfo.src_ip = 'IPv6';
+            packetInfo.dst_ip = 'IPv6';
+          }
+
+        // ===== PARSE ARP PACKETS (0x0806) =====
+        } else if (etherType === 0x0806) {
+          packetInfo.protocol = 'ARP';
+          packetInfo.src_ip = 'ARP';
+          packetInfo.dst_ip = 'ARP';
+
+        // ===== UNKNOWN ETHERNET TYPE =====
+        } else {
+          packetInfo.protocol = `ETH-${etherType.toString(16).toUpperCase()}`;
         }
         
         protocols[packetInfo.protocol] = (protocols[packetInfo.protocol] || 0) + 1;
@@ -489,10 +742,20 @@ export default function App() {
       
       console.log(`✅ Parsed ${packets.length} packets successfully`);
       
+      // ===== CALCULATE SUMMARY STATISTICS =====
       const duration = packets.length > 0 ? Math.max(...packets.map(p => p.time)) : 0;
       const avgPacketSize = packetSizes.length > 0 ? packetSizes.reduce((a, b) => a + b, 0) / packetSizes.length : 0;
       const maxPacketSize = packetSizes.length > 0 ? Math.max(...packetSizes) : 0;
       const minPacketSize = packetSizes.length > 0 ? Math.min(...packetSizes) : 0;
+      
+      // Log protocol distribution
+      console.log('📊 Protocol Distribution:');
+      Object.entries(protocols)
+        .sort((a, b) => b[1] - a[1])
+        .forEach(([proto, count]) => {
+          const percentage = ((count / packets.length) * 100).toFixed(1);
+          console.log(`   ${proto}: ${count} (${percentage}%)`);
+        });
       
       return {
         packets,
@@ -521,6 +784,14 @@ export default function App() {
     }
   };
 
+  /**
+   * Handle File Upload
+   * 
+   * Processes uploaded PCAP file and updates state.
+   * Validates file format and tracks progress in Firebase.
+   * 
+   * @param {Event} event - File input change event
+   */
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -568,11 +839,16 @@ export default function App() {
     }
   };
 
+  /**
+   * Handle Upload Click
+   * 
+   * Triggers file input click.
+   */
   const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
 
-  // Show loading while checking auth
+  // ===== LOADING SCREEN =====
   if (authLoading) {
     return (
       <div style={{
@@ -622,23 +898,26 @@ export default function App() {
     );
   }
 
-  // Show auth page if not authenticated
+  // ===== AUTH PAGE =====
   if (!isAuthenticated) {
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
   }
 
-  // Determine if we should show the centered upload screen
+  // ===== DETERMINE IF CENTERED UPLOAD SHOULD SHOW =====
   const shouldShowCenteredUpload = !pcapData && 
     (currentView === 'dashboard' || 
      currentView === 'inspector' || 
      currentView === '3d' || 
      currentView === 'flow');
 
+  // ===== MAIN APP RENDER =====
   return (
     <div className="flex h-screen overflow-hidden bg-bg text-textMain font-sans">
       <input ref={fileInputRef} type="file" accept=".pcap,.pcapng" onChange={handleFileUpload} className="hidden" />
 
+      {/* ===== SIDEBAR ===== */}
       <aside className="w-64 bg-surface flex flex-col border-r border-white/5">
+        {/* Logo */}
         <div className="p-6 flex items-center gap-2 border-b border-white/5">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
             <Network className="text-white" size={20} />
@@ -646,6 +925,7 @@ export default function App() {
           <h1 className="text-xl font-bold tracking-tight">Netra</h1>
         </div>
 
+        {/* Navigation */}
         <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2 sidebar-scroll">
           <SidebarItem 
             icon={LayoutDashboard} 
@@ -684,6 +964,7 @@ export default function App() {
             onClick={() => setCurrentView('profile')} 
           />
 
+          {/* Teacher Section */}
           {userRole === 'teacher' && (
             <>
               <div className="border-t border-white/10 my-3" />
@@ -712,6 +993,7 @@ export default function App() {
           )}
         </nav>
 
+        {/* Student Mode Toggle */}
         <div className="p-4 border-t border-white/5 bg-black/20">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 text-sm font-medium">
@@ -725,6 +1007,7 @@ export default function App() {
           <p className="text-xs text-textMuted">{studentMode ? "Tooltips enabled." : "Technical view."}</p>
         </div>
 
+        {/* User Info & Logout */}
         <div className="p-4 border-t border-white/5">
           <div style={{
             background: 'rgba(77, 150, 255, 0.1)',
@@ -753,6 +1036,7 @@ export default function App() {
           </button>
         </div>
 
+        {/* Upload Button (when PCAP loaded) */}
         {pcapData && (
           <div className="p-4">
             <button onClick={handleUploadClick} disabled={loading} className="w-full bg-primary hover:bg-blue-600 text-white p-3 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
@@ -765,6 +1049,7 @@ export default function App() {
         )}
       </aside>
 
+      {/* ===== MAIN CONTENT AREA ===== */}
       <main className="flex-1 overflow-auto relative">
         {shouldShowCenteredUpload ? (
           <CenteredUpload 
