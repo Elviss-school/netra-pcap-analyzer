@@ -1055,7 +1055,7 @@ useEffect(() => {
 
         {/* Upload Button (when PCAP loaded) */}
         {pcapData && (
-          <div className="p-4">
+          <div className="px-4 pb-4 pt-0">
             <button onClick={handleUploadClick} disabled={loading} className="w-full bg-primary hover:bg-blue-600 text-white p-3 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
               <Upload size={18} />
               {loading ? 'Processing...' : 'Upload New PCAP'}

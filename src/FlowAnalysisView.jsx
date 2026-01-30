@@ -113,6 +113,14 @@ IMPORTANT RULES:
 - Explain technical terms briefly in simple language (especially in beginner mode).
 - Use "may / could / might" for interpretation.
 - When relevant under 'Security Perspective', explain how certain traffic patterns are commonly associated with attacks (e.g. port scanning, SYN floods), but clearly state when evidence is insufficient to confirm an attack.
+- IMPORTANT ATTACK IDENTIFICATION RULES:
+  - If the traffic patterns strongly match well-known attack signatures, you MUST explicitly name the most likely attack type.
+  - Examples:
+    - A very high number of TCP SYN packets with few or no completed handshakes → describe as a likely SYN flood (Denial of Service).
+    - Repeated SSH connections or authentication attempts → describe as a possible SSH brute-force attack.
+    - Large volumes of UDP traffic to a single service with small requests and large responses → describe as possible amplification attack.
+  - You MUST NOT say "No attack detected" if traffic clearly matches a known attack pattern.
+  - Instead, state: "This traffic is commonly associated with [attack type], although additional context is required to confirm intent."
 
 PCAP SUMMARY:
 - Total Packets: ${flowSummary.stats.totalPackets.toLocaleString()}
@@ -137,14 +145,23 @@ ${flowSummary.conversations.slice(0, 5).map(c => `- ${c.pair}: ${c.count} packet
 TOP ACTIVE PORTS:
 ${flowSummary.topPorts.slice(0, 5).map(p => `- Port ${p.port}: ${p.count} packets`).join('\n')}
 
-OUTPUT FORMAT (use these exact headings):
+OUTPUT FORMAT (Use these exact headings, but do not use markdown symbols like # or **. Use plain text section titles):
 
 1) Overview (plain English)
 2) Key Observations (facts only, bullet points)
 3) Interpretations (what it might mean, cautious language)
-4) Security Perspective (beginner-friendly, not alarmist)
-5) Learning Takeaways (2-4 bullet points)
-6) What to Try Next (1-2 suggestable actions inside this website)
+4) Attack Detection (mandatory)
+  - Clearly state whether an attack is detected or not no matter the file size
+  - If an attack is detected:
+    - Name the attack explicitly (e.g. SSH Brute Force, Port Scan, DDoS)
+    - Explain the specific traffic patterns that indicate this attack
+    - State confidence level: Low/Medium/High
+  - If no attack is detected:
+    - Explicitly state no attack is detected
+    - Explain why the traffic does not match common attack patterns
+5) Security Perspective (beginner-friendly, not alarmist)
+6) Learning Takeaways (2-4 bullet points)
+7) What to Try Next (1-2 suggestable actions inside this website)
 
 TONE:
 ${audienceMode === "beginner"
