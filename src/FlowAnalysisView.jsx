@@ -119,8 +119,6 @@ IMPORTANT RULES:
     - A very high number of TCP SYN packets with few or no completed handshakes → describe as a likely SYN flood (Denial of Service).
     - Repeated SSH connections or authentication attempts → describe as a possible SSH brute-force attack.
     - Large volumes of UDP traffic to a single service with small requests and large responses → describe as possible amplification attack.
-  - You MUST NOT say "No attack detected" if traffic clearly matches a known attack pattern.
-  - Instead, state: "This traffic is commonly associated with [attack type], although additional context is required to confirm intent."
 
 PCAP SUMMARY:
 - Total Packets: ${flowSummary.stats.totalPackets.toLocaleString()}
@@ -151,14 +149,17 @@ OUTPUT FORMAT (Use these exact headings, but do not use markdown symbols like # 
 2) Key Observations (facts only, bullet points)
 3) Interpretations (what it might mean, cautious language)
 4) Attack Detection (mandatory)
-  - Clearly state whether an attack is detected or not no matter the file size
-  - If an attack is detected:
-    - Name the attack explicitly (e.g. SSH Brute Force, Port Scan, DDoS)
-    - Explain the specific traffic patterns that indicate this attack
-    - State confidence level: Low/Medium/High
-  - If no attack is detected:
-    - Explicitly state no attack is detected
-    - Explain why the traffic does not match common attack patterns
+  - If outcome A (Likely attack pattern present):
+    - Name the most likely attack type (e.g. SYN flood, SSH brute-force, Port scan, UDP amplification)
+    - List the specific indicators from the provided stats
+    - Confidence: Low/Medium/High
+  - If outcome B (No clear attack pattern):
+    - State that the capture does not strongly match common signatures based on the provided stats
+    - Mention what evidence would be expected to confirm an attack (1–2 bullets)
+  - If outcome C (Insufficient evidence):
+    - State why evidence is insufficient (e.g. low packet count, missing payload/auth info, unclear directionality)
+    - Still mention the top 1–2 most relevant attack patterns to consider and what to check next.
+  - Do NOT mention internal outcome labels such as "Outcome A", "Outcome B", or "Outcome C" in the final response.
 5) Security Perspective (beginner-friendly, not alarmist)
 6) Learning Takeaways (2-4 bullet points)
 7) What to Try Next (1-2 suggestable actions inside this website)
@@ -191,7 +192,7 @@ ${audienceMode === "beginner"
               content: prompt
             }
           ],
-          temperature: 0.7,
+          temperature: 0.4,
           max_tokens: 2000
         })
       });
