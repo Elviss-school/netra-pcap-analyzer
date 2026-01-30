@@ -102,9 +102,19 @@ export default function FlowAnalysisView({ studentMode, pcapData }) {
     try {
       addDebugLog('🤖 Model: llama-3.3-70b-versatile', 'success');
 
-      const prompt = `You are a cybersecurity expert analyzing network traffic. Provide a professional security analysis report.
+      const audienceMode = studentMode ? "beginner" : "technical";
 
-NETWORK STATISTICS:
+      const prompt = `You are an educational assistant helping ${audienceMode === "beginner" ? "beginners" : "intermediate learners"} understand a PCAP summary.
+
+IMPORTANT RULES:
+- Use calm, neutral language. Do NOT assume malicious intent.
+- Clearly separate OBSERVATIONS (facts) from INTERPRETATION (what it could mean).
+- If the capture is small/limited, say conclusions is limited.
+- Explain technical terms briefly in simple language (especially in beginner mode).
+- Use "may / could / might" for interpretation.
+- When relevant under 'Security Perspective', explain how certain traffic patterns are commonly associated with attacks (e.g. port scanning, SYN floods), but clearly state when evidence is insufficient to confirm an attack.
+
+PCAP SUMMARY:
 - Total Packets: ${flowSummary.stats.totalPackets.toLocaleString()}
 - Duration: ${flowSummary.stats.duration.toFixed(1)} seconds
 - Total Data: ${(flowSummary.stats.totalBytes / 1048576).toFixed(2)} MB
@@ -112,6 +122,11 @@ NETWORK STATISTICS:
 - TCP SYN Packets: ${flowSummary.stats.synCount}
 - TCP RST Packets: ${flowSummary.stats.rstCount}
 - Retransmissions: ${flowSummary.stats.retransmissions}
+- Traffic Spikes Detected: ${flowSummary.spikes.length}
+${flowSummary.spikes.length > 0
+  ? `- Example spike times: ${flowSummary.spikes.slice(0, 3).map(s => `${s.time.toFixed(1)}s (${(s.bytes / 1024).toFixed(0)} KB)`).join(', ')}`
+  : `- No significant spikes based on current threshold`
+}
 
 PROTOCOL DISTRIBUTION:
 ${flowSummary.protocols.slice(0, 5).map(p => `- ${p.name}: ${p.percentage}% (${p.count} packets)`).join('\n')}
@@ -122,33 +137,21 @@ ${flowSummary.conversations.slice(0, 5).map(c => `- ${c.pair}: ${c.count} packet
 TOP ACTIVE PORTS:
 ${flowSummary.topPorts.slice(0, 5).map(p => `- Port ${p.port}: ${p.count} packets`).join('\n')}
 
-TRAFFIC ANOMALIES:
-- Traffic Spikes Detected: ${flowSummary.spikes.length}
-${flowSummary.spikes.length > 0 ? `- Spike Times: ${flowSummary.spikes.slice(0, 3).map(s => `${s.time.toFixed(1)}s (${(s.bytes / 1024).toFixed(0)} KB)`).join(', ')}` : '- No significant spikes'}
+OUTPUT FORMAT (use these exact headings):
 
-Please provide a detailed analysis in the following format:
+1) Overview (plain English)
+2) Key Observations (facts only, bullet points)
+3) Interpretations (what it might mean, cautious language)
+4) Security Perspective (beginner-friendly, not alarmist)
+5) Learning Takeaways (2-4 bullet points)
+6) What to Try Next (1-2 suggestable actions inside this website)
 
-**1. OVERALL ASSESSMENT**
-Summarize the network capture characteristics and general traffic patterns.
-
-**2. SECURITY FINDINGS**
-Identify potential security threats such as:
-- Port scanning activity
-- DDoS patterns
-- Suspicious protocol usage
-- Unusual connection patterns
-- Data exfiltration risks
-
-**3. PERFORMANCE ANALYSIS**
-Assess network health including:
-- Retransmission rates
-- Connection quality
-- Bandwidth utilization
-
-**4. RECOMMENDATIONS**
-Provide 3-5 specific, actionable security recommendations based on the findings.
-
-Format your response with clear headers and bullet points. Be specific and technical.`;
+TONE:
+${audienceMode === "beginner"
+  ? "- Beginner mode: explain terms simply, avoid heavy jargon."
+  : "- Technical mode: can be more concise and technical, but still avoid assuming attacks."
+}
+`;
 
       addDebugLog('🔄 Sending request to Groq API...', 'info');
       addDebugLog(`📝 Prompt length: ${prompt.length} chars`, 'info');
@@ -164,7 +167,7 @@ Format your response with clear headers and bullet points. Be specific and techn
           messages: [
             {
               role: 'system',
-              content: 'You are a professional cybersecurity analyst with expertise in network traffic analysis and threat detection.'
+              content: 'You are a calm, beginner-friendly cybersecurity teaching assistant. You explain PCAP/network concepts clearly, do not assume malicious intent, and you separate observations from interpretations.'
             },
             {
               role: 'user',
