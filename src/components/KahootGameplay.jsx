@@ -1,4 +1,4 @@
-// src/components/KahootGameplay.jsx (FIXED - PCAP NOW DISPLAYS)
+// src/components/KahootGameplay.jsx
 
 import React, { useState, useEffect } from 'react';
 import { Clock, Zap, LogOut, AlertTriangle } from 'lucide-react';
@@ -147,17 +147,10 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd, onLeave }) 
 
   if (!gameData || !scenario || !currentQuestion) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'white'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⏳</div>
-          <h2 style={{ fontSize: '2rem', fontWeight: 'bold' }}>Loading question...</h2>
+      <div className="min-h-screen bg-bg flex items-center justify-center text-white">
+        <div className="text-center">
+          <div className="text-5xl mb-4">⏳</div>
+          <h2 className="text-3xl font-bold">Loading question...</h2>
         </div>
       </div>
     );
@@ -168,48 +161,12 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd, onLeave }) 
   const totalQuestions = scenario.questions.length;
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      padding: '2rem',
-      paddingTop: '5rem',
-      color: 'white',
-      position: 'relative'
-    }}>
+    <div className="min-h-screen bg-bg p-8 pt-20 text-white relative">
       
       {/* Leave Button */}
       <button
         onClick={handleLeaveClick}
-        style={{
-          position: 'absolute',
-          top: '2rem',
-          right: '2rem',
-          background: 'rgba(255, 107, 107, 0.9)',
-          color: 'white',
-          padding: '0.75rem 1.5rem',
-          borderRadius: '12px',
-          border: '2px solid rgba(255, 255, 255, 0.3)',
-          cursor: 'pointer',
-          fontSize: '1rem',
-          fontWeight: 'bold',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          backdropFilter: 'blur(10px)',
-          transition: 'all 0.3s ease',
-          zIndex: 100,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
-        }}
-        onMouseEnter={(e) => {
-          e.target.style.background = 'rgba(255, 107, 107, 1)';
-          e.target.style.transform = 'translateY(-2px)';
-          e.target.style.boxShadow = '0 6px 16px rgba(0,0,0,0.3)';
-        }}
-        onMouseLeave={(e) => {
-          e.target.style.background = 'rgba(255, 107, 107, 0.9)';
-          e.target.style.transform = 'translateY(0)';
-          e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
-        }}
+        className="absolute top-8 right-8 bg-red-500/90 text-white px-6 py-3 rounded-xl border-2 border-white/30 cursor-pointer text-base font-bold flex items-center gap-2 backdrop-blur-md transition-all duration-300 z-[100] shadow-lg hover:bg-red-500 hover:-translate-y-0.5 hover:shadow-xl"
       >
         <LogOut size={20} />
         Leave Game
@@ -217,115 +174,31 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd, onLeave }) 
 
       {/* Leave Confirmation Modal */}
       {showLeaveConfirm && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.7)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 2000,
-          backdropFilter: 'blur(5px)'
-        }}>
-          <div style={{
-            background: 'white',
-            borderRadius: '24px',
-            padding: '2.5rem',
-            maxWidth: '450px',
-            width: '90%',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
-            animation: 'slideIn 0.3s ease'
-          }}>
-            <div style={{
-              width: '80px',
-              height: '80px',
-              background: 'linear-gradient(135deg, #FF6B6B, #FF8E53)',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 1.5rem'
-            }}>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[2000] backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-10 max-w-md w-[90%] shadow-2xl animate-slideIn">
+            <div className="w-20 h-20 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-6">
               <AlertTriangle size={40} color="white" />
             </div>
 
-            <h3 style={{
-              fontSize: '1.8rem',
-              fontWeight: 'bold',
-              color: '#1a1a1a',
-              textAlign: 'center',
-              marginBottom: '1rem'
-            }}>
+            <h3 className="text-3xl font-bold text-gray-900 text-center mb-4">
               Leave Game?
             </h3>
 
-            <p style={{
-              color: '#666',
-              fontSize: '1rem',
-              textAlign: 'center',
-              marginBottom: '2rem',
-              lineHeight: '1.6'
-            }}>
+            <p className="text-gray-600 text-base text-center mb-8 leading-relaxed">
               Are you sure you want to leave? Your progress will be saved, but you won't be able to rejoin this game.
             </p>
 
-            <div style={{
-              display: 'flex',
-              gap: '1rem'
-            }}>
+            <div className="flex gap-4">
               <button
                 onClick={handleCancelLeave}
-                style={{
-                  flex: 1,
-                  background: '#f5f5f5',
-                  color: '#666',
-                  padding: '1rem 1.5rem',
-                  borderRadius: '12px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '1rem',
-                  fontWeight: 'bold',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = '#e0e0e0';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = '#f5f5f5';
-                }}
+                className="flex-1 bg-gray-100 text-gray-600 px-6 py-4 rounded-xl border-none cursor-pointer text-base font-bold transition-all duration-200 hover:bg-gray-200"
               >
                 Cancel
               </button>
 
               <button
                 onClick={handleConfirmLeave}
-                style={{
-                  flex: 1,
-                  background: 'linear-gradient(135deg, #FF6B6B, #FF8E53)',
-                  color: 'white',
-                  padding: '1rem 1.5rem',
-                  borderRadius: '12px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '1rem',
-                  fontWeight: 'bold',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.transform = 'translateY(-2px)';
-                  e.target.style.boxShadow = '0 6px 20px rgba(255, 107, 107, 0.4)';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = 'none';
-                }}
+                className="flex-1 bg-gradient-to-br from-red-500 to-orange-500 text-white px-6 py-4 rounded-xl border-none cursor-pointer text-base font-bold flex items-center justify-center gap-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-red-500/40"
               >
                 <LogOut size={18} />
                 Leave Game
@@ -337,37 +210,15 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd, onLeave }) 
       
       {/* Question Phase */}
       {!showExplanation && !showLeaderboard && (
-        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+        <div className="max-w-7xl mx-auto">
           
           {/* Header */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '2rem'
-          }}>
-            <div style={{
-              background: 'rgba(255, 255, 255, 0.2)',
-              padding: '0.75rem 1.5rem',
-              borderRadius: '20px',
-              backdropFilter: 'blur(10px)',
-              fontWeight: 'bold'
-            }}>
+          <div className="flex justify-between items-center mb-8">
+            <div className="bg-surface border border-white/10 px-6 py-3 rounded-xl backdrop-blur-md font-bold">
               Question {questionNumber} of {totalQuestions}
             </div>
 
-            <div style={{
-              background: timeLeft <= 5 ? '#FF6B6B' : 'rgba(255, 255, 255, 0.2)',
-              padding: '0.75rem 1.5rem',
-              borderRadius: '20px',
-              backdropFilter: 'blur(10px)',
-              fontWeight: 'bold',
-              fontSize: '1.2rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              animation: timeLeft <= 5 ? 'pulse 1s infinite' : 'none'
-            }}>
+            <div className={`${timeLeft <= 5 ? 'bg-red-500/20 border-red-500/50 animate-pulse' : 'bg-surface border-white/10'} border-2 px-6 py-3 rounded-xl backdrop-blur-md font-bold text-xl flex items-center gap-2`}>
               <Clock size={20} />
               {timeLeft}s
             </div>
@@ -375,42 +226,26 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd, onLeave }) 
 
           {/* ⭐ PCAP VISUALIZATION - NOW SHOWS CORRECTLY */}
           {scenario.pcapData && scenario.pcapData.packets && (
-            <div style={{ marginBottom: '2rem' }}>
+            <div className="mb-8">
               <PcapViewer pcapData={scenario.pcapData} />
             </div>
           )}
 
           {/* Question */}
-          <div style={{
-            background: 'white',
-            color: '#1a1a1a',
-            borderRadius: '24px',
-            padding: '3rem',
-            marginBottom: '2rem',
-            textAlign: 'center',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
-          }}>
-            <h2 style={{
-              fontSize: '2rem',
-              fontWeight: 'bold',
-              lineHeight: '1.4'
-            }}>
+          <div className="bg-surface border border-white/5 rounded-2xl p-12 mb-8 text-center shadow-lg">
+            <h2 className="text-3xl font-bold leading-snug text-white">
               {currentQuestion.question}
             </h2>
           </div>
 
           {/* Answer Options */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '1.5rem'
-          }}>
+          <div className="grid grid-cols-2 gap-6">
             {currentQuestion.options.map((option, index) => {
               const colors = [
-                { bg: '#E91E63', hover: '#C2185B' },
-                { bg: '#2196F3', hover: '#1976D2' },
-                { bg: '#FF9800', hover: '#F57C00' },
-                { bg: '#4CAF50', hover: '#388E3C' }
+                { bg: 'bg-pink-600', hover: 'hover:bg-pink-700', selected: 'bg-pink-700' },
+                { bg: 'bg-blue-600', hover: 'hover:bg-blue-700', selected: 'bg-blue-700' },
+                { bg: 'bg-orange-600', hover: 'hover:bg-orange-700', selected: 'bg-orange-700' },
+                { bg: 'bg-green-600', hover: 'hover:bg-green-700', selected: 'bg-green-700' }
               ];
 
               const color = colors[index];
@@ -421,30 +256,17 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd, onLeave }) 
                   key={index}
                   onClick={() => handleAnswerSelect(index)}
                   disabled={answered}
-                  style={{
-                    background: isSelected ? color.hover : color.bg,
-                    color: 'white',
-                    padding: '2rem',
-                    borderRadius: '16px',
-                    border: isSelected ? '4px solid white' : 'none',
-                    cursor: answered ? 'not-allowed' : 'pointer',
-                    fontSize: '1.3rem',
-                    fontWeight: 'bold',
-                    transition: 'all 0.3s ease',
-                    boxShadow: isSelected ? '0 8px 32px rgba(0,0,0,0.3)' : '0 4px 16px rgba(0,0,0,0.2)',
-                    transform: isSelected ? 'scale(1.05)' : 'scale(1)',
-                    opacity: answered && !isSelected ? 0.5 : 1
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!answered && !isSelected) {
-                      e.target.style.transform = 'scale(1.05)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isSelected) {
-                      e.target.style.transform = 'scale(1)';
-                    }
-                  }}
+                  className={`
+                    ${isSelected ? color.selected : color.bg}
+                    ${!answered && !isSelected ? color.hover : ''}
+                    text-white p-8 rounded-2xl
+                    ${isSelected ? 'border-4 border-white' : 'border-none'}
+                    ${answered ? 'cursor-not-allowed' : 'cursor-pointer'}
+                    text-xl font-bold transition-all duration-300
+                    ${isSelected ? 'shadow-2xl scale-105' : 'shadow-lg'}
+                    ${answered && !isSelected ? 'opacity-50' : 'opacity-100'}
+                    ${!answered && !isSelected ? 'hover:scale-105' : ''}
+                  `}
                 >
                   {option}
                 </button>
@@ -454,23 +276,10 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd, onLeave }) 
 
           {/* Submit Button */}
           {selectedAnswer !== null && !answered && (
-            <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+            <div className="text-center mt-8">
               <button
                 onClick={handleSubmitAnswer}
-                style={{
-                  background: 'white',
-                  color: '#667eea',
-                  padding: '1.25rem 3rem',
-                  borderRadius: '16px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '1.3rem',
-                  fontWeight: 'bold',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-                  transition: 'transform 0.2s ease'
-                }}
-                onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
-                onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                className="bg-primary hover:bg-blue-600 text-white px-12 py-5 rounded-xl border-none cursor-pointer text-xl font-bold shadow-lg transition-all duration-200 hover:scale-105"
               >
                 Submit Answer
               </button>
@@ -481,63 +290,34 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd, onLeave }) 
 
       {/* Explanation Phase */}
       {showExplanation && !showLeaderboard && (
-        <div style={{ maxWidth: '900px', margin: '0 auto', textAlign: 'center' }}>
+        <div className="max-w-4xl mx-auto text-center">
           
-          <div style={{
-            fontSize: '8rem',
-            marginBottom: '2rem',
-            animation: 'bounce 0.5s'
-          }}>
+          <div className="text-8xl mb-8 animate-bounce">
             {isCorrect ? '✅' : '❌'}
           </div>
 
-          <h2 style={{
-            fontSize: '3rem',
-            fontWeight: 'bold',
-            marginBottom: '1rem'
-          }}>
+          <h2 className="text-5xl font-bold mb-4">
             {isCorrect ? 'Correct!' : 'Incorrect'}
           </h2>
 
           {isCorrect && (
-            <div style={{
-              fontSize: '2rem',
-              marginBottom: '2rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem'
-            }}>
+            <div className="text-3xl mb-8 flex items-center justify-center gap-2">
               <Zap size={32} color="#FFD700" fill="#FFD700" />
               +{pointsEarned} points
             </div>
           )}
 
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.2)',
-            borderRadius: '16px',
-            padding: '2rem',
-            backdropFilter: 'blur(10px)',
-            marginBottom: '2rem'
-          }}>
-            <div style={{ fontSize: '1rem', opacity: 0.9, marginBottom: '0.75rem' }}>
+          <div className="bg-surface border border-white/10 rounded-2xl p-8 backdrop-blur-md mb-8">
+            <div className="text-base text-textMuted mb-3">
               Correct Answer:
             </div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
+            <div className="text-2xl font-bold text-white">
               {currentQuestion.options[currentQuestion.correctAnswer]}
             </div>
           </div>
 
-          <div style={{
-            background: 'white',
-            color: '#1a1a1a',
-            borderRadius: '16px',
-            padding: '2rem',
-            fontSize: '1.1rem',
-            lineHeight: '1.6',
-            textAlign: 'left'
-          }}>
-            <strong>Explanation:</strong><br/>
+          <div className="bg-surface border border-white/5 rounded-2xl p-8 text-lg leading-relaxed text-left text-white shadow-lg">
+            <strong className="text-primary">Explanation:</strong><br/>
             {currentQuestion.explanation}
           </div>
         </div>
@@ -545,24 +325,13 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd, onLeave }) 
 
       {/* Leaderboard Phase */}
       {showLeaderboard && (
-        <div style={{ maxWidth: '700px', margin: '0 auto' }}>
+        <div className="max-w-3xl mx-auto">
           
-          <h2 style={{
-            fontSize: '3rem',
-            fontWeight: 'bold',
-            textAlign: 'center',
-            marginBottom: '2rem'
-          }}>
+          <h2 className="text-5xl font-bold text-center mb-8">
             🏆 Leaderboard
           </h2>
 
-          <div style={{
-            background: 'white',
-            color: '#1a1a1a',
-            borderRadius: '24px',
-            padding: '2rem',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
-          }}>
+          <div className="bg-surface border border-white/5 rounded-2xl p-8 shadow-lg">
             {leaderboard.map((player, index) => {
               const isCurrentPlayer = player.id === playerId;
               const medals = ['🥇', '🥈', '🥉'];
@@ -570,30 +339,23 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd, onLeave }) 
               return (
                 <div
                   key={player.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '1rem',
-                    padding: '1rem',
-                    marginBottom: '0.75rem',
-                    background: isCurrentPlayer ? 
-                      'linear-gradient(135deg, #667eea, #764ba2)' : '#f5f5f5',
-                    color: isCurrentPlayer ? 'white' : '#1a1a1a',
-                    borderRadius: '12px',
-                    fontWeight: 'bold',
-                    fontSize: '1.1rem',
-                    transition: 'transform 0.2s ease',
-                    transform: isCurrentPlayer ? 'scale(1.05)' : 'scale(1)'
-                  }}
+                  className={`
+                    flex items-center gap-4 p-4 mb-3 rounded-xl font-bold text-lg
+                    ${isCurrentPlayer 
+                      ? 'bg-primary text-white scale-105 shadow-lg' 
+                      : 'bg-white/5 text-white border border-white/10'
+                    }
+                    transition-transform duration-200
+                  `}
                 >
-                  <div style={{ fontSize: '2rem', width: '3rem', textAlign: 'center' }}>
+                  <div className="text-3xl w-12 text-center">
                     {index < 3 ? medals[index] : `${index + 1}.`}
                   </div>
-                  <div style={{ flex: 1 }}>
+                  <div className="flex-1">
                     {player.name}
-                    {isCurrentPlayer && <span style={{ marginLeft: '0.5rem', opacity: 0.8 }}>(You)</span>}
+                    {isCurrentPlayer && <span className="ml-2 opacity-80">(You)</span>}
                   </div>
-                  <div style={{ fontSize: '1.3rem' }}>
+                  <div className="text-xl">
                     {player.score}
                   </div>
                 </div>
@@ -601,12 +363,7 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd, onLeave }) 
             })}
           </div>
 
-          <div style={{
-            textAlign: 'center',
-            marginTop: '2rem',
-            fontSize: '1.1rem',
-            opacity: 0.9
-          }}>
+          <div className="text-center mt-8 text-lg text-textMuted">
             Waiting for next question...
           </div>
         </div>
@@ -614,24 +371,6 @@ const KahootGameplay = ({ roomCode, playerId, playerName, onGameEnd, onLeave }) 
 
       {/* CSS Animations */}
       <style>{`
-        @keyframes pulse {
-          0%, 100% {
-            transform: scale(1);
-            opacity: 1;
-          }
-          50% {
-            transform: scale(1.05);
-            opacity: 0.8;
-          }
-        }
-        @keyframes bounce {
-          0%, 100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-20px);
-          }
-        }
         @keyframes slideIn {
           from {
             opacity: 0;

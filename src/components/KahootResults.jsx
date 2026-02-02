@@ -1,4 +1,4 @@
-// src/components/KahootResults.jsx (NEW FILE)
+// src/components/KahootResults.jsx
 
 import React, { useState, useEffect } from 'react';
 import { Trophy, Award, Zap, Home } from 'lucide-react';
@@ -25,17 +25,10 @@ const KahootResults = ({ roomCode, playerId, onClose }) => {
 
   if (loading) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'white'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⏳</div>
-          <h2 style={{ fontSize: '2rem', fontWeight: 'bold' }}>Loading results...</h2>
+      <div className="min-h-screen bg-bg flex items-center justify-center text-white">
+        <div className="text-center">
+          <div className="text-5xl mb-4">⏳</div>
+          <h2 className="text-3xl font-bold">Loading results...</h2>
         </div>
       </div>
     );
@@ -45,46 +38,28 @@ const KahootResults = ({ roomCode, playerId, onClose }) => {
   const playerScore = leaderboard.find(p => p.playerId === playerId)?.score || 0;
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      padding: '2rem',
-      color: 'white'
-    }}>
-      <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+    <div className="min-h-screen bg-bg p-8 text-white">
+      <div className="max-w-4xl mx-auto">
         
         {/* Celebration */}
-        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-          <div style={{ fontSize: '6rem', marginBottom: '1rem' }}>
+        <div className="text-center mb-12">
+          <div className="text-8xl mb-4">
             {playerRank === 1 ? '🏆' : playerRank === 2 ? '🥈' : playerRank === 3 ? '🥉' : '🎉'}
           </div>
           
-          <h1 style={{ fontSize: '3rem', fontWeight: 'bold', marginBottom: '1rem' }}>
+          <h1 className="text-5xl font-bold mb-4">
             {playerRank === 1 ? 'You Won!' : 'Great Job!'}
           </h1>
 
           {playerId && (
-            <div style={{
-              background: 'rgba(255, 255, 255, 0.2)',
-              borderRadius: '16px',
-              padding: '2rem',
-              display: 'inline-block',
-              backdropFilter: 'blur(10px)',
-              marginBottom: '2rem'
-            }}>
-              <div style={{ fontSize: '1rem', opacity: 0.9, marginBottom: '0.5rem' }}>
+            <div className="bg-surface border border-white/10 rounded-2xl p-8 inline-block backdrop-blur-md shadow-lg mb-8">
+              <div className="text-base text-textMuted mb-2">
                 Your Rank
               </div>
-              <div style={{ fontSize: '3rem', fontWeight: 'bold', marginBottom: '1rem' }}>
+              <div className="text-5xl font-bold mb-4">
                 #{playerRank}
               </div>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                justifyContent: 'center',
-                fontSize: '1.5rem'
-              }}>
+              <div className="flex items-center gap-2 justify-center text-2xl">
                 <Zap size={24} color="#FFD700" fill="#FFD700" />
                 {playerScore} points
               </div>
@@ -93,22 +68,8 @@ const KahootResults = ({ roomCode, playerId, onClose }) => {
         </div>
 
         {/* Final Leaderboard */}
-        <div style={{
-          background: 'white',
-          color: '#1a1a1a',
-          borderRadius: '24px',
-          padding: '2rem',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-          marginBottom: '2rem'
-        }}>
-          <h2 style={{
-            fontSize: '2rem',
-            fontWeight: 'bold',
-            marginBottom: '2rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.75rem'
-          }}>
+        <div className="bg-surface border border-white/5 rounded-2xl p-8 shadow-lg mb-8">
+          <h2 className="text-3xl font-bold mb-8 flex items-center gap-3 text-white">
             <Trophy size={32} />
             Final Leaderboard
           </h2>
@@ -120,32 +81,24 @@ const KahootResults = ({ roomCode, playerId, onClose }) => {
             return (
               <div
                 key={player.playerId}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '1rem',
-                  padding: '1.25rem',
-                  marginBottom: '0.75rem',
-                  background: isCurrentPlayer ? 
-                    'linear-gradient(135deg, #667eea, #764ba2)' : '#f5f5f5',
-                  color: isCurrentPlayer ? 'white' : '#1a1a1a',
-                  borderRadius: '12px',
-                  fontWeight: 'bold',
-                  fontSize: '1.2rem',
-                  transition: 'transform 0.2s ease',
-                  transform: isCurrentPlayer ? 'scale(1.05)' : 'scale(1)',
-                  boxShadow: isCurrentPlayer ? '0 4px 12px rgba(0,0,0,0.2)' : 'none'
-                }}
+                className={`
+                  flex items-center gap-4 p-5 mb-3 rounded-xl font-bold text-xl
+                  transition-transform duration-200
+                  ${isCurrentPlayer 
+                    ? 'bg-gradient-to-r from-primary to-purple-600 text-white scale-105 shadow-lg' 
+                    : 'bg-white/5 border border-white/10 text-white'
+                  }
+                `}
               >
-                <div style={{ fontSize: '2.5rem', width: '4rem', textAlign: 'center' }}>
+                <div className="text-4xl w-16 text-center">
                   {index < 3 ? medals[index] : `${index + 1}.`}
                 </div>
-                <div style={{ flex: 1 }}>
+                <div className="flex-1">
                   {player.name}
-                  {isCurrentPlayer && <span style={{ marginLeft: '0.5rem', opacity: 0.8 }}>(You)</span>}
+                  {isCurrentPlayer && <span className="ml-2 opacity-80">(You)</span>}
                 </div>
-                <div style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Zap size={20} color={isCurrentPlayer ? '#FFD700' : '#FFA000'} fill={isCurrentPlayer ? '#FFD700' : '#FFA000'} />
+                <div className="text-2xl flex items-center gap-2">
+                  <Zap size={20} color="#FFD700" fill="#FFD700" />
                   {player.score}
                 </div>
               </div>
@@ -155,26 +108,10 @@ const KahootResults = ({ roomCode, playerId, onClose }) => {
 
         {/* Action Button */}
         {onClose && (
-          <div style={{ textAlign: 'center' }}>
+          <div className="text-center">
             <button
               onClick={onClose}
-              style={{
-                background: 'white',
-                color: '#667eea',
-                padding: '1.25rem 3rem',
-                borderRadius: '16px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '1.2rem',
-                fontWeight: 'bold',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.75rem',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-                transition: 'transform 0.2s ease'
-              }}
-              onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
-              onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+              className="bg-primary hover:bg-blue-600 text-white px-12 py-5 rounded-2xl border-none cursor-pointer text-xl font-bold inline-flex items-center gap-3 shadow-lg transition-all duration-200 hover:scale-105"
             >
               <Home size={24} />
               Back to Dashboard

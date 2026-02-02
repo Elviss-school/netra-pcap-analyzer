@@ -1,4 +1,4 @@
-// src/components/KahootJoin.jsx (WITH LEAVE BUTTON)
+// src/components/KahootJoin.jsx
 
 import React, { useState } from 'react';
 import { GamepadIcon, ArrowRight, AlertCircle, LogOut } from 'lucide-react';
@@ -98,93 +98,39 @@ const KahootJoin = ({ user, onJoined, onLeave }) => {
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      padding: '2rem',
-      position: 'relative'
-    }}>
+    <div className="min-h-screen flex items-center justify-center bg-bg p-8 relative">
       
       {/* Leave Button (Top Right) */}
       <button
         onClick={handleLeave}
-        style={{
-          position: 'absolute',
-          top: '2rem',
-          right: '2rem',
-          background: 'rgba(255, 255, 255, 0.2)',
-          color: 'white',
-          padding: '0.75rem 1.5rem',
-          borderRadius: '12px',
-          border: '2px solid rgba(255, 255, 255, 0.3)',
-          cursor: 'pointer',
-          fontSize: '1rem',
-          fontWeight: 'bold',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          backdropFilter: 'blur(10px)',
-          transition: 'all 0.3s ease'
-        }}
-        onMouseEnter={(e) => {
-          e.target.style.background = 'rgba(255, 255, 255, 0.3)';
-          e.target.style.transform = 'translateY(-2px)';
-        }}
-        onMouseLeave={(e) => {
-          e.target.style.background = 'rgba(255, 255, 255, 0.2)';
-          e.target.style.transform = 'translateY(0)';
-        }}
+        className="absolute top-8 right-8 bg-surface border-2 border-white/20 text-white px-6 py-3 rounded-xl cursor-pointer text-base font-bold flex items-center gap-2 backdrop-blur-md transition-all duration-300 hover:bg-white/10 hover:-translate-y-0.5"
       >
         <LogOut size={20} />
         Leave
       </button>
 
-      <div style={{
-        background: 'white',
-        borderRadius: '24px',
-        padding: '3rem',
-        maxWidth: '500px',
-        width: '100%',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
-      }}>
+      <div className="bg-surface border border-white/10 rounded-3xl p-12 max-w-lg w-full shadow-2xl">
         
         {/* STEP 1: Enter Room Code */}
         {step === 1 && (
           <>
-            <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-              <div style={{
-                width: '80px',
-                height: '80px',
-                background: 'linear-gradient(135deg, #667eea, #764ba2)',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 1.5rem'
-              }}>
+            <div className="text-center mb-8">
+              <div className="w-20 h-20 bg-gradient-to-br from-primary to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
                 <GamepadIcon size={40} color="white" />
               </div>
               
-              <h1 style={{
-                fontSize: '2.5rem',
-                fontWeight: 'bold',
-                color: '#1a1a1a',
-                marginBottom: '0.5rem'
-              }}>
+              <h1 className="text-4xl font-bold text-white mb-2">
                 Join Kahoot!
               </h1>
               
-              <p style={{ color: '#666', fontSize: '1.1rem' }}>
+              <p className="text-textMuted text-lg">
                 Enter the 6-digit room code from your teacher
               </p>
             </div>
 
             <form onSubmit={handleRoomCodeSubmit}>
               {/* Room Code Input */}
-              <div style={{ marginBottom: '1.5rem' }}>
+              <div className="mb-6">
                 <input
                   type="text"
                   value={roomCode}
@@ -192,37 +138,16 @@ const KahootJoin = ({ user, onJoined, onLeave }) => {
                   placeholder="000000"
                   maxLength={6}
                   autoFocus
-                  style={{
-                    width: '100%',
-                    fontSize: '3rem',
-                    fontWeight: 'bold',
-                    textAlign: 'center',
-                    padding: '1rem',
-                    border: error ? '3px solid #FF6B6B' : '3px solid #e0e0e0',
-                    borderRadius: '16px',
-                    letterSpacing: '0.5rem',
-                    fontFamily: 'monospace',
-                    color: '#1a1a1a',
-                    outline: 'none',
-                    transition: 'border-color 0.3s ease'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#667eea'}
-                  onBlur={(e) => e.target.style.borderColor = error ? '#FF6B6B' : '#e0e0e0'}
+                  className={`
+                    w-full text-5xl font-bold text-center p-4
+                    ${error ? 'border-red-500' : 'border-white/20 focus:border-primary'}
+                    border-3 rounded-2xl tracking-widest font-mono text-white
+                    bg-white/5 outline-none transition-colors duration-300
+                  `}
                 />
                 
                 {error && (
-                  <div style={{
-                    marginTop: '1rem',
-                    padding: '0.75rem',
-                    background: '#FEE',
-                    border: '1px solid #FF6B6B',
-                    borderRadius: '8px',
-                    color: '#FF6B6B',
-                    fontSize: '0.9rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem'
-                  }}>
+                  <div className="mt-4 p-3 bg-red-500/20 border border-red-500/50 rounded-xl text-red-400 text-sm flex items-center gap-2">
                     <AlertCircle size={16} />
                     {error}
                   </div>
@@ -233,31 +158,15 @@ const KahootJoin = ({ user, onJoined, onLeave }) => {
               <button
                 type="submit"
                 disabled={roomCode.length !== 6 || loading}
-                style={{
-                  width: '100%',
-                  background: roomCode.length === 6 ? 'linear-gradient(135deg, #667eea, #764ba2)' : '#ccc',
-                  color: 'white',
-                  fontSize: '1.2rem',
-                  fontWeight: 'bold',
-                  padding: '1.25rem',
-                  border: 'none',
-                  borderRadius: '12px',
-                  cursor: roomCode.length === 6 ? 'pointer' : 'not-allowed',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.75rem',
-                  transition: 'transform 0.2s ease',
-                  opacity: loading ? 0.7 : 1
-                }}
-                onMouseEnter={(e) => {
-                  if (roomCode.length === 6 && !loading) {
-                    e.target.style.transform = 'translateY(-2px)';
+                className={`
+                  w-full text-xl font-bold py-5 border-none rounded-xl
+                  flex items-center justify-center gap-3 transition-all duration-200
+                  ${roomCode.length === 6 
+                    ? 'bg-gradient-to-r from-primary to-purple-600 text-white cursor-pointer hover:-translate-y-1' 
+                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                   }
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.transform = 'translateY(0)';
-                }}
+                  ${loading ? 'opacity-70' : ''}
+                `}
               >
                 {loading ? 'Checking...' : (
                   <>
@@ -273,38 +182,23 @@ const KahootJoin = ({ user, onJoined, onLeave }) => {
         {/* STEP 2: Enter Name */}
         {step === 2 && (
           <>
-            <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-              <div style={{
-                width: '80px',
-                height: '80px',
-                background: 'linear-gradient(135deg, #6BCB77, #4D96FF)',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 1.5rem',
-                fontSize: '2.5rem'
-              }}>
+            <div className="text-center mb-8">
+              <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-primary rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">
                 👤
               </div>
               
-              <h1 style={{
-                fontSize: '2.5rem',
-                fontWeight: 'bold',
-                color: '#1a1a1a',
-                marginBottom: '0.5rem'
-              }}>
+              <h1 className="text-4xl font-bold text-white mb-2">
                 What's your name?
               </h1>
               
-              <p style={{ color: '#666', fontSize: '1.1rem' }}>
-                Room Code: <span style={{ fontWeight: 'bold', color: '#667eea' }}>{roomCode}</span>
+              <p className="text-textMuted text-lg">
+                Room Code: <span className="font-bold text-primary">{roomCode}</span>
               </p>
             </div>
 
             <form onSubmit={handleJoinGame}>
               {/* Name Input */}
-              <div style={{ marginBottom: '1.5rem' }}>
+              <div className="mb-6">
                 <input
                   type="text"
                   value={playerName}
@@ -315,35 +209,16 @@ const KahootJoin = ({ user, onJoined, onLeave }) => {
                   placeholder="Enter your name"
                   maxLength={20}
                   autoFocus
-                  style={{
-                    width: '100%',
-                    fontSize: '1.5rem',
-                    fontWeight: 'bold',
-                    textAlign: 'center',
-                    padding: '1.25rem',
-                    border: error ? '3px solid #FF6B6B' : '3px solid #e0e0e0',
-                    borderRadius: '16px',
-                    color: '#1a1a1a',
-                    outline: 'none',
-                    transition: 'border-color 0.3s ease'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#6BCB77'}
-                  onBlur={(e) => e.target.style.borderColor = error ? '#FF6B6B' : '#e0e0e0'}
+                  className={`
+                    w-full text-2xl font-bold text-center p-5
+                    ${error ? 'border-red-500' : 'border-white/20 focus:border-green-500'}
+                    border-3 rounded-2xl text-white bg-white/5 outline-none
+                    transition-colors duration-300
+                  `}
                 />
                 
                 {error && (
-                  <div style={{
-                    marginTop: '1rem',
-                    padding: '0.75rem',
-                    background: '#FEE',
-                    border: '1px solid #FF6B6B',
-                    borderRadius: '8px',
-                    color: '#FF6B6B',
-                    fontSize: '0.9rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem'
-                  }}>
+                  <div className="mt-4 p-3 bg-red-500/20 border border-red-500/50 rounded-xl text-red-400 text-sm flex items-center gap-2">
                     <AlertCircle size={16} />
                     {error}
                   </div>
@@ -351,31 +226,14 @@ const KahootJoin = ({ user, onJoined, onLeave }) => {
               </div>
 
               {/* Action Buttons */}
-              <div style={{ display: 'flex', gap: '1rem' }}>
+              <div className="flex gap-4">
                 <button
                   type="button"
                   onClick={() => {
                     setStep(1);
                     setError(null);
                   }}
-                  style={{
-                    flex: 1,
-                    background: '#f5f5f5',
-                    color: '#666',
-                    fontSize: '1.1rem',
-                    fontWeight: 'bold',
-                    padding: '1.25rem',
-                    border: 'none',
-                    borderRadius: '12px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = '#e0e0e0';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = '#f5f5f5';
-                  }}
+                  className="flex-1 bg-white/5 border border-white/10 text-textMuted text-lg font-bold py-5 rounded-xl cursor-pointer transition-all duration-200 hover:bg-white/10"
                 >
                   Back
                 </button>
@@ -383,30 +241,14 @@ const KahootJoin = ({ user, onJoined, onLeave }) => {
                 <button
                   type="submit"
                   disabled={!playerName.trim() || loading}
-                  style={{
-                    flex: 2,
-                    background: playerName.trim() ? 'linear-gradient(135deg, #6BCB77, #4D96FF)' : '#ccc',
-                    color: 'white',
-                    fontSize: '1.2rem',
-                    fontWeight: 'bold',
-                    padding: '1.25rem',
-                    border: 'none',
-                    borderRadius: '12px',
-                    cursor: playerName.trim() ? 'pointer' : 'not-allowed',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.75rem',
-                    transition: 'transform 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (playerName.trim() && !loading) {
-                      e.target.style.transform = 'translateY(-2px)';
+                  className={`
+                    flex-[2] text-xl font-bold py-5 border-none rounded-xl
+                    flex items-center justify-center gap-3 transition-all duration-200
+                    ${playerName.trim() 
+                      ? 'bg-gradient-to-r from-green-500 to-primary text-white cursor-pointer hover:-translate-y-1' 
+                      : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                     }
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.transform = 'translateY(0)';
-                  }}
+                  `}
                 >
                   {loading ? 'Joining...' : (
                     <>
@@ -422,50 +264,21 @@ const KahootJoin = ({ user, onJoined, onLeave }) => {
 
         {/* STEP 3: Joining */}
         {step === 3 && (
-          <div style={{ textAlign: 'center', padding: '2rem' }}>
-            <div style={{
-              width: '100px',
-              height: '100px',
-              background: 'linear-gradient(135deg, #6BCB77, #4D96FF)',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 2rem',
-              animation: 'pulse 2s infinite'
-            }}>
+          <div className="text-center py-8">
+            <div className="w-24 h-24 bg-gradient-to-br from-green-500 to-primary rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse">
               <GamepadIcon size={50} color="white" />
             </div>
             
-            <h2 style={{
-              fontSize: '2rem',
-              fontWeight: 'bold',
-              color: '#1a1a1a',
-              marginBottom: '1rem'
-            }}>
+            <h2 className="text-3xl font-bold text-white mb-4">
               Joining game...
             </h2>
             
-            <p style={{ color: '#666', fontSize: '1.1rem' }}>
+            <p className="text-textMuted text-lg">
               Please wait while we connect you to the game
             </p>
           </div>
         )}
       </div>
-
-      {/* CSS Animation */}
-      <style>{`
-        @keyframes pulse {
-          0%, 100% {
-            transform: scale(1);
-            opacity: 1;
-          }
-          50% {
-            transform: scale(1.05);
-            opacity: 0.8;
-          }
-        }
-      `}</style>
     </div>
   );
 };

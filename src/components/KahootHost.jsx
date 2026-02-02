@@ -1,4 +1,4 @@
-// src/components/KahootHost.jsx (ENHANCED WITH COMPREHENSIVE ERROR HANDLING)
+// src/components/KahootHost.jsx
 
 import React, { useState, useEffect } from 'react';
 import { Play, SkipForward, Trophy, Users, Clock, AlertCircle, RefreshCw, WifiOff } from 'lucide-react';
@@ -309,45 +309,18 @@ const KahootHost = ({ roomCode, teacherId, onGameEnd }) => {
   // ERROR SCREEN
   if (error?.type === 'fatal') {
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'white',
-        padding: '2rem'
-      }}>
-        <div style={{
-          background: 'rgba(255, 255, 255, 0.15)',
-          borderRadius: '24px',
-          padding: '3rem',
-          maxWidth: '500px',
-          textAlign: 'center',
-          backdropFilter: 'blur(10px)'
-        }}>
-          <AlertCircle size={64} style={{ marginBottom: '1.5rem', color: '#ff6b6b' }} />
-          <h2 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '1rem' }}>
+      <div className="min-h-screen bg-bg flex items-center justify-center text-white p-8">
+        <div className="bg-surface border border-white/10 rounded-3xl p-12 max-w-lg text-center backdrop-blur-md shadow-lg">
+          <AlertCircle size={64} className="mx-auto mb-6 text-red-500" />
+          <h2 className="text-3xl font-bold mb-4">
             Game Setup Error
           </h2>
-          <p style={{ fontSize: '1.1rem', marginBottom: '2rem', opacity: 0.9 }}>
+          <p className="text-lg mb-8 text-textMuted">
             {error.message}
           </p>
           <button
             onClick={() => window.location.reload()}
-            style={{
-              background: 'white',
-              color: '#667eea',
-              padding: '1rem 2rem',
-              borderRadius: '12px',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '1.1rem',
-              fontWeight: 'bold',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.5rem'
-            }}
+            className="bg-primary hover:bg-blue-600 text-white px-8 py-4 rounded-xl border-none cursor-pointer text-lg font-bold inline-flex items-center gap-2 transition-all"
           >
             <RefreshCw size={20} />
             Reload Page
@@ -360,53 +333,26 @@ const KahootHost = ({ roomCode, teacherId, onGameEnd }) => {
   // CONNECTION ERROR SCREEN
   if (connectionStatus === 'error' && !gameData) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'white',
-        padding: '2rem'
-      }}>
-        <div style={{
-          background: 'rgba(255, 255, 255, 0.15)',
-          borderRadius: '24px',
-          padding: '3rem',
-          maxWidth: '500px',
-          textAlign: 'center',
-          backdropFilter: 'blur(10px)'
-        }}>
-          <WifiOff size={64} style={{ marginBottom: '1.5rem', color: '#ffd93d' }} />
-          <h2 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '1rem' }}>
+      <div className="min-h-screen bg-bg flex items-center justify-center text-white p-8">
+        <div className="bg-surface border border-white/10 rounded-3xl p-12 max-w-lg text-center backdrop-blur-md shadow-lg">
+          <WifiOff size={64} className="mx-auto mb-6 text-yellow-500" />
+          <h2 className="text-3xl font-bold mb-4">
             Connection Failed
           </h2>
-          <p style={{ fontSize: '1.1rem', marginBottom: '2rem', opacity: 0.9 }}>
+          <p className="text-lg mb-8 text-textMuted">
             {error?.message || 'Could not connect to the game room'}
           </p>
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+          <div className="flex gap-4 justify-center">
             <button
               onClick={handleRetry}
-              style={{
-                background: 'white',
-                color: '#667eea',
-                padding: '1rem 2rem',
-                borderRadius: '12px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '1.1rem',
-                fontWeight: 'bold',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.5rem'
-              }}
+              className="bg-primary hover:bg-blue-600 text-white px-8 py-4 rounded-xl border-none cursor-pointer text-lg font-bold inline-flex items-center gap-2 transition-all"
             >
               <RefreshCw size={20} />
               Retry Connection
             </button>
           </div>
           {retryCount > 0 && (
-            <p style={{ marginTop: '1rem', fontSize: '0.9rem', opacity: 0.7 }}>
+            <p className="mt-4 text-sm text-textMuted">
               Retry attempts: {retryCount}
             </p>
           )}
@@ -418,20 +364,13 @@ const KahootHost = ({ roomCode, teacherId, onGameEnd }) => {
   // LOADING SCREEN
   if (!gameData || !scenario) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'white'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⏳</div>
-          <h2 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+      <div className="min-h-screen bg-bg flex items-center justify-center text-white">
+        <div className="text-center">
+          <div className="text-5xl mb-4">⏳</div>
+          <h2 className="text-3xl font-bold mb-2">
             {connectionStatus === 'connecting' ? 'Connecting to game...' : 'Loading game...'}
           </h2>
-          <p style={{ opacity: 0.8 }}>Room Code: {roomCode}</p>
+          <p className="text-textMuted">Room Code: {roomCode}</p>
         </div>
       </div>
     );
@@ -440,28 +379,14 @@ const KahootHost = ({ roomCode, teacherId, onGameEnd }) => {
   // ERROR NOTIFICATION BAR (for non-fatal errors)
   const ErrorNotification = () => (
     error && error.type !== 'fatal' ? (
-      <div style={{
-        background: error.type === 'warning' ? '#fff3cd' : '#f8d7da',
-        color: error.type === 'warning' ? '#856404' : '#721c24',
-        padding: '1rem 1.5rem',
-        borderRadius: '12px',
-        marginBottom: '1rem',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '1rem',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-      }}>
+      <div className={`${
+        error.type === 'warning' ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-200' : 'bg-red-500/20 border-red-500/50 text-red-200'
+      } border-2 px-6 py-4 rounded-xl mb-4 flex items-center gap-4 shadow-lg`}>
         <AlertCircle size={24} />
-        <div style={{ flex: 1 }}>{error.message}</div>
+        <div className="flex-1">{error.message}</div>
         <button
           onClick={() => setError(null)}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            fontSize: '1.5rem',
-            opacity: 0.6
-          }}
+          className="bg-transparent border-none cursor-pointer text-2xl opacity-60 hover:opacity-100"
         >
           ×
         </button>
@@ -472,121 +397,63 @@ const KahootHost = ({ roomCode, teacherId, onGameEnd }) => {
   // LOBBY VIEW (before game starts)
   if (gameData.status === 'lobby') {
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        padding: '2rem',
-        color: 'white'
-      }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+      <div className="min-h-screen bg-bg p-8 text-white">
+        <div className="max-w-6xl mx-auto">
           
           <ErrorNotification />
           
           {/* Header */}
-          <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-            <h1 style={{ fontSize: '3rem', fontWeight: 'bold', marginBottom: '1rem' }}>
+          <div className="text-center mb-12">
+            <h1 className="text-5xl font-bold mb-4">
               🎮 Host Lobby
             </h1>
             
-            <div style={{
-              background: 'rgba(255, 255, 255, 0.2)',
-              borderRadius: '16px',
-              padding: '1.5rem',
-              display: 'inline-block',
-              backdropFilter: 'blur(10px)'
-            }}>
-              <div style={{ fontSize: '0.9rem', opacity: 0.9, marginBottom: '0.5rem' }}>
+            <div className="bg-surface border border-white/10 rounded-2xl p-6 inline-block backdrop-blur-md shadow-lg">
+              <div className="text-sm text-textMuted mb-2">
                 Room Code
               </div>
-              <div style={{
-                fontSize: '3rem',
-                fontWeight: 'bold',
-                letterSpacing: '0.5rem',
-                fontFamily: 'monospace'
-              }}>
+              <div className="text-5xl font-bold tracking-widest font-mono">
                 {roomCode}
               </div>
             </div>
 
             {/* Connection Status Indicator */}
-            <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-              <div style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                background: connectionStatus === 'connected' ? '#4CAF50' : '#ffd93d'
-              }} />
-              <span style={{ fontSize: '0.9rem', opacity: 0.9 }}>
+            <div className="mt-4 flex items-center justify-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${
+                connectionStatus === 'connected' ? 'bg-green-500' : 'bg-yellow-500'
+              }`} />
+              <span className="text-sm text-textMuted">
                 {connectionStatus === 'connected' ? 'Connected' : 'Connecting...'}
               </span>
             </div>
           </div>
 
           {/* Players Grid */}
-          <div style={{
-            background: 'white',
-            borderRadius: '24px',
-            padding: '2rem',
-            marginBottom: '2rem',
-            color: '#1a1a1a'
-          }}>
-            <h2 style={{
-              fontSize: '1.8rem',
-              fontWeight: 'bold',
-              marginBottom: '2rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem'
-            }}>
+          <div className="bg-surface border border-white/5 rounded-2xl p-8 mb-8 shadow-lg">
+            <h2 className="text-2xl font-bold mb-6 flex items-center gap-3 text-white">
               <Users size={28} />
               Players ({players.length})
             </h2>
 
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-              gap: '1rem'
-            }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {players.length === 0 ? (
-                <div style={{
-                  gridColumn: '1 / -1',
-                  textAlign: 'center',
-                  padding: '3rem',
-                  color: '#999'
-                }}>
-                  <Users size={48} style={{ opacity: 0.3, marginBottom: '1rem' }} />
+                <div className="col-span-full text-center py-12 text-textMuted">
+                  <Users size={48} className="opacity-30 mx-auto mb-4" />
                   <p>Waiting for players to join...</p>
-                  <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
-                    Share the room code: <strong>{roomCode}</strong>
+                  <p className="text-sm mt-2">
+                    Share the room code: <strong className="text-primary">{roomCode}</strong>
                   </p>
                 </div>
               ) : (
                 players.map((player) => (
                   <div
                     key={player.id}
-                    style={{
-                      background: '#f5f5f5',
-                      padding: '1.25rem',
-                      borderRadius: '12px',
-                      fontWeight: 'bold',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.75rem'
-                    }}
+                    className="bg-white/5 border border-white/10 p-5 rounded-xl font-bold flex items-center gap-3"
                   >
-                    <div style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '50%',
-                      background: '#e0e0e0',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '1.2rem'
-                    }}>
+                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-lg text-primary">
                       {player.name ? player.name.charAt(0).toUpperCase() : '?'}
                     </div>
-                    <div>{player.name || 'Anonymous'}</div>
+                    <div className="text-white">{player.name || 'Anonymous'}</div>
                   </div>
                 ))
               )}
@@ -594,53 +461,42 @@ const KahootHost = ({ roomCode, teacherId, onGameEnd }) => {
           </div>
 
           {/* Start Button */}
-          <div style={{ textAlign: 'center' }}>
+          <div className="text-center">
             <button
               onClick={handleStartGame}
               disabled={players.length === 0 || loading || !scenario || connectionStatus !== 'connected'}
-              style={{
-                background: (players.length > 0 && scenario && connectionStatus === 'connected') ? '#4CAF50' : '#ccc',
-                color: 'white',
-                fontSize: '1.5rem',
-                fontWeight: 'bold',
-                padding: '1.5rem 3rem',
-                border: 'none',
-                borderRadius: '16px',
-                cursor: (players.length > 0 && scenario && connectionStatus === 'connected' && !loading) ? 'pointer' : 'not-allowed',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '1rem',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-                transition: 'transform 0.2s ease',
-                opacity: loading ? 0.7 : 1
-              }}
-              onMouseEnter={(e) => {
-                if (players.length > 0 && !loading && scenario && connectionStatus === 'connected') {
-                  e.target.style.transform = 'translateY(-4px)';
+              className={`
+                ${(players.length > 0 && scenario && connectionStatus === 'connected') 
+                  ? 'bg-green-500 hover:bg-green-600' 
+                  : 'bg-gray-600 cursor-not-allowed'
                 }
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.transform = 'translateY(0)';
-              }}
+                text-white text-2xl font-bold px-12 py-6 border-none rounded-2xl
+                inline-flex items-center gap-4 shadow-lg transition-all duration-200
+                ${loading ? 'opacity-70' : ''}
+                ${(players.length > 0 && !loading && scenario && connectionStatus === 'connected') 
+                  ? 'hover:-translate-y-1' 
+                  : ''
+                }
+              `}
             >
               <Play size={32} />
               {loading ? 'Starting...' : `Start Game (${players.length} ${players.length === 1 ? 'player' : 'players'})`}
             </button>
             
             {players.length === 0 && (
-              <p style={{ marginTop: '1rem', opacity: 0.8 }}>
+              <p className="mt-4 text-textMuted">
                 Waiting for at least 1 player to join...
               </p>
             )}
             
             {!scenario && players.length > 0 && (
-              <p style={{ marginTop: '1rem', opacity: 0.8, color: '#ffd93d' }}>
+              <p className="mt-4 text-yellow-500">
                 ⚠️ Game configuration loading...
               </p>
             )}
 
             {connectionStatus !== 'connected' && (
-              <p style={{ marginTop: '1rem', opacity: 0.8, color: '#ffd93d' }}>
+              <p className="mt-4 text-yellow-500">
                 ⚠️ Connecting to server...
               </p>
             )}
@@ -657,80 +513,55 @@ const KahootHost = ({ roomCode, teacherId, onGameEnd }) => {
     players.filter(p => p.answers && p.answers[currentQuestion.id]).length : 0;
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      padding: '2rem',
-      color: 'white'
-    }}>
-      <div style={{ maxWidth: '1600px', margin: '0 auto' }}>
+    <div className="min-h-screen bg-bg p-8 text-white">
+      <div className="max-w-7xl mx-auto">
         
         <ErrorNotification />
         
         {/* Header */}
-        <div style={{
-          background: 'rgba(255, 255, 255, 0.2)',
-          borderRadius: '16px',
-          padding: '2rem',
-          marginBottom: '2rem',
-          backdropFilter: 'blur(10px)'
-        }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '1rem'
-          }}>
+        <div className="bg-surface border border-white/10 rounded-2xl p-8 mb-8 backdrop-blur-md shadow-lg">
+          <div className="flex justify-between items-center flex-wrap gap-4">
             <div>
-              <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+              <h1 className="text-3xl font-bold mb-2">
                 🎮 Host Controls
               </h1>
-              <p style={{ opacity: 0.9 }}>
-                Room Code: <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{roomCode}</span>
+              <p className="text-textMuted">
+                Room Code: <span className="font-bold text-xl text-primary">{roomCode}</span>
               </p>
             </div>
 
-            <div style={{
-              display: 'flex',
-              gap: '2rem',
-              alignItems: 'center'
-            }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>
+            <div className="flex gap-8 items-center">
+              <div className="text-center">
+                <div className="text-3xl font-bold">
                   {questionNumber}/{totalQuestions}
                 </div>
-                <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>Questions</div>
+                <div className="text-sm text-textMuted">Questions</div>
               </div>
 
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>
+              <div className="text-center">
+                <div className="text-3xl font-bold">
                   {players.length}
                 </div>
-                <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>Players</div>
+                <div className="text-sm text-textMuted">Players</div>
               </div>
 
-              <div style={{ textAlign: 'center' }}>
-                <div style={{
-                  fontSize: '2rem',
-                  fontWeight: 'bold',
-                  color: timeLeft <= 5 ? '#ff6b6b' : 'white'
-                }}>
+              <div className="text-center">
+                <div className={`text-3xl font-bold ${timeLeft <= 5 ? 'text-red-500' : 'text-white'}`}>
                   {timeLeft}s
                 </div>
-                <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>Time Left</div>
+                <div className="text-sm text-textMuted">Time Left</div>
               </div>
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr', gap: '2rem' }}>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* Left Column - Question & PCAP */}
-          <div>
+          <div className="lg:col-span-2">
             {/* PCAP VISUALIZATION */}
             {scenario.pcapData && (
-              <div style={{ marginBottom: '2rem' }}>
+              <div className="mb-8">
                 <PcapViewer pcapData={scenario.pcapData} />
               </div>
             )}
@@ -738,39 +569,27 @@ const KahootHost = ({ roomCode, teacherId, onGameEnd }) => {
             {/* Current Question Display */}
             {currentQuestion ? (
               <>
-                <div style={{
-                  background: 'white',
-                  color: '#1a1a1a',
-                  borderRadius: '16px',
-                  padding: '2rem',
-                  marginBottom: '2rem'
-                }}>
-                  <div style={{
-                    fontSize: '0.9rem',
-                    color: '#666',
-                    marginBottom: '1rem',
-                    fontWeight: 'bold'
-                  }}>
+                <div className="bg-surface border border-white/5 rounded-2xl p-8 mb-8 shadow-lg">
+                  <div className="text-sm text-textMuted mb-4 font-bold">
                     QUESTION {questionNumber}
                   </div>
-                  <h2 style={{ fontSize: '1.8rem', fontWeight: 'bold', marginBottom: '2rem' }}>
+                  <h2 className="text-2xl font-bold mb-8 text-white">
                     {currentQuestion.question}
                   </h2>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {currentQuestion.options && currentQuestion.options.map((option, index) => {
                       const isCorrect = index === currentQuestion.correctAnswer;
                       return (
                         <div
                           key={index}
-                          style={{
-                            background: isCorrect ? '#E8F5E9' : '#f5f5f5',
-                            border: isCorrect ? '2px solid #4CAF50' : '2px solid #e0e0e0',
-                            borderRadius: '8px',
-                            padding: '1rem',
-                            fontWeight: isCorrect ? 'bold' : 'normal',
-                            color: isCorrect ? '#4CAF50' : '#666'
-                          }}
+                          className={`
+                            ${isCorrect 
+                              ? 'bg-green-500/20 border-green-500/50 text-green-400' 
+                              : 'bg-white/5 border-white/10 text-textMuted'
+                            }
+                            border-2 rounded-xl p-4 font-bold
+                          `}
                         >
                           {option} {isCorrect && '✓'}
                         </div>
@@ -780,22 +599,12 @@ const KahootHost = ({ roomCode, teacherId, onGameEnd }) => {
                 </div>
 
                 {/* Controls */}
-                <div style={{
-                  background: 'rgba(255, 255, 255, 0.2)',
-                  borderRadius: '16px',
-                  padding: '1.5rem',
-                  backdropFilter: 'blur(10px)',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                  gap: '1rem'
-                }}>
+                <div className="bg-surface border border-white/10 rounded-2xl p-6 backdrop-blur-md shadow-lg flex justify-between items-center flex-wrap gap-4">
                   <div>
-                    <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                    <div className="font-bold mb-1 text-white">
                       {answeredCount} / {players.length} answered
                     </div>
-                    <div style={{ fontSize: '0.9rem', opacity: 0.8 }}>
+                    <div className="text-sm text-textMuted">
                       {players.length - answeredCount} players still thinking...
                     </div>
                   </div>
@@ -803,27 +612,11 @@ const KahootHost = ({ roomCode, teacherId, onGameEnd }) => {
                   <button
                     onClick={handleNextQuestion}
                     disabled={loading}
-                    style={{
-                      background: '#4CAF50',
-                      color: 'white',
-                      padding: '1rem 2rem',
-                      borderRadius: '8px',
-                      border: 'none',
-                      cursor: loading ? 'not-allowed' : 'pointer',
-                      fontSize: '1.1rem',
-                      fontWeight: 'bold',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.75rem',
-                      opacity: loading ? 0.7 : 1,
-                      transition: 'transform 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!loading) e.target.style.transform = 'scale(1.05)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.transform = 'scale(1)';
-                    }}
+                    className={`
+                      bg-green-500 hover:bg-green-600 text-white px-8 py-4 rounded-xl border-none
+                      text-lg font-bold flex items-center gap-3 transition-all duration-200
+                      ${loading ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}
+                    `}
                   >
                     {questionNumber < totalQuestions ? (
                       <>
@@ -840,15 +633,9 @@ const KahootHost = ({ roomCode, teacherId, onGameEnd }) => {
                 </div>
               </>
             ) : (
-              <div style={{
-                background: 'white',
-                color: '#1a1a1a',
-                borderRadius: '16px',
-                padding: '3rem',
-                textAlign: 'center'
-              }}>
-                <AlertCircle size={48} style={{ color: '#ffd93d', marginBottom: '1rem' }} />
-                <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
+              <div className="bg-surface border border-white/5 rounded-2xl p-12 text-center shadow-lg">
+                <AlertCircle size={48} className="text-yellow-500 mx-auto mb-4" />
+                <h3 className="text-2xl font-bold text-white">
                   Question Loading...
                 </h3>
               </div>
@@ -857,30 +644,16 @@ const KahootHost = ({ roomCode, teacherId, onGameEnd }) => {
 
           {/* Right Column - Live Leaderboard */}
           <div>
-            <div style={{
-              background: 'white',
-              color: '#1a1a1a',
-              borderRadius: '16px',
-              padding: '1.5rem',
-              position: 'sticky',
-              top: '2rem'
-            }}>
-              <h3 style={{
-                fontSize: '1.3rem',
-                fontWeight: 'bold',
-                marginBottom: '1.5rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem'
-              }}>
+            <div className="bg-surface border border-white/5 rounded-2xl p-6 shadow-lg sticky top-8">
+              <h3 className="text-xl font-bold mb-6 flex items-center gap-2 text-white">
                 <Trophy size={24} />
                 Live Leaderboard
               </h3>
 
-              <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
+              <div className="max-h-[600px] overflow-y-auto">
                 {players.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '2rem', color: '#999' }}>
-                    <Users size={32} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
+                  <div className="text-center py-8 text-textMuted">
+                    <Users size={32} className="opacity-30 mx-auto mb-2" />
                     <p>No players</p>
                   </div>
                 ) : (
@@ -889,23 +662,15 @@ const KahootHost = ({ roomCode, teacherId, onGameEnd }) => {
                     return (
                       <div
                         key={player.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '1rem',
-                          padding: '0.75rem',
-                          marginBottom: '0.5rem',
-                          background: '#f5f5f5',
-                          borderRadius: '8px'
-                        }}
+                        className="flex items-center gap-4 p-3 mb-2 bg-white/5 border border-white/10 rounded-xl"
                       >
-                        <div style={{ fontSize: '1.5rem', width: '2rem', textAlign: 'center' }}>
+                        <div className="text-2xl w-8 text-center">
                           {index < 3 ? medals[index] : `${index + 1}.`}
                         </div>
-                        <div style={{ flex: 1, fontWeight: 'bold' }}>
+                        <div className="flex-1 font-bold text-white">
                           {player.name || 'Anonymous'}
                         </div>
-                        <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#667eea' }}>
+                        <div className="text-xl font-bold text-primary">
                           {player.score || 0}
                         </div>
                       </div>

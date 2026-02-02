@@ -1,4 +1,4 @@
-// src/components/KahootLobby.jsx (FIXED VERSION)
+// src/components/KahootLobby.jsx
 
 import React, { useState, useEffect } from 'react';
 import { Users, Play, Crown } from 'lucide-react';
@@ -64,126 +64,73 @@ const KahootLobby = ({ roomCode, playerName, isHost, onGameStart }) => {
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      padding: '2rem',
-      color: 'white'
-    }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+    <div className="min-h-screen bg-bg p-8 text-white">
+      <div className="max-w-6xl mx-auto">
         
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-          <h1 style={{ fontSize: '3rem', fontWeight: 'bold', marginBottom: '1rem' }}>
+        <div className="text-center mb-12">
+          <h1 className="text-5xl font-bold mb-4">
             🎮 Game Lobby
           </h1>
           
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.2)',
-            borderRadius: '16px',
-            padding: '1.5rem',
-            display: 'inline-block',
-            backdropFilter: 'blur(10px)'
-          }}>
-            <div style={{ fontSize: '0.9rem', opacity: 0.9, marginBottom: '0.5rem' }}>
+          <div className="bg-surface border border-white/10 rounded-2xl p-6 inline-block backdrop-blur-md shadow-lg">
+            <div className="text-sm text-textMuted mb-2">
               Room Code
             </div>
-            <div style={{
-              fontSize: '3rem',
-              fontWeight: 'bold',
-              letterSpacing: '0.5rem',
-              fontFamily: 'monospace'
-            }}>
+            <div className="text-5xl font-bold tracking-widest font-mono">
               {roomCode}
             </div>
           </div>
         </div>
 
         {/* Players Grid */}
-        <div style={{
-          background: 'white',
-          borderRadius: '24px',
-          padding: '2rem',
-          marginBottom: '2rem',
-          color: '#1a1a1a'
-        }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '2rem'
-          }}>
-            <h2 style={{ fontSize: '1.8rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div className="bg-surface border border-white/5 rounded-2xl p-8 mb-8 shadow-lg">
+          <div className="flex justify-between items-center mb-8">
+            <h2 className="text-2xl font-bold flex items-center gap-3 text-white">
               <Users size={28} />
               Players ({players.length})
             </h2>
             
             {!isHost && (
-              <div style={{
-                background: '#E8F5E9',
-                color: '#4CAF50',
-                padding: '0.5rem 1rem',
-                borderRadius: '20px',
-                fontWeight: 'bold',
-                fontSize: '0.9rem'
-              }}>
+              <div className="bg-green-500/20 border border-green-500/50 text-green-400 px-4 py-2 rounded-full font-bold text-sm">
                 ✓ You're in!
               </div>
             )}
           </div>
 
           {/* Players List */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-            gap: '1rem'
-          }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {players.length === 0 ? (
-              <div style={{
-                gridColumn: '1 / -1',
-                textAlign: 'center',
-                padding: '3rem',
-                color: '#999'
-              }}>
-                <Users size={48} style={{ opacity: 0.3, marginBottom: '1rem' }} />
+              <div className="col-span-full text-center py-12 text-textMuted">
+                <Users size={48} className="opacity-30 mx-auto mb-4" />
                 <p>Waiting for players to join...</p>
               </div>
             ) : (
               players.map((player, index) => (
                 <div
                   key={player.id}
-                  style={{
-                    background: player.name === playerName ? 
-                      'linear-gradient(135deg, #667eea, #764ba2)' : '#f5f5f5',
-                    color: player.name === playerName ? 'white' : '#1a1a1a',
-                    padding: '1.25rem',
-                    borderRadius: '12px',
-                    fontWeight: 'bold',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    transition: 'transform 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'}
-                  onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
+                  className={`
+                    ${player.name === playerName 
+                      ? 'bg-gradient-to-br from-primary to-purple-600 text-white' 
+                      : 'bg-white/5 border border-white/10 text-white'
+                    }
+                    p-5 rounded-xl font-bold flex items-center gap-3
+                    transition-transform duration-200 hover:-translate-y-0.5
+                  `}
                 >
-                  <div style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '50%',
-                    background: player.name === playerName ? 
-                      'rgba(255, 255, 255, 0.2)' : '#e0e0e0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '1.2rem'
-                  }}>
+                  <div className={`
+                    w-10 h-10 rounded-full flex items-center justify-center text-lg
+                    ${player.name === playerName 
+                      ? 'bg-white/20' 
+                      : 'bg-primary/20 text-primary'
+                    }
+                  `}>
                     {player.name.charAt(0).toUpperCase()}
                   </div>
-                  <div style={{ flex: 1 }}>
+                  <div className="flex-1">
                     <div>{player.name}</div>
                     {player.name === playerName && (
-                      <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>
+                      <div className="text-xs opacity-80">
                         (You)
                       </div>
                     )}
@@ -196,41 +143,27 @@ const KahootLobby = ({ roomCode, playerName, isHost, onGameStart }) => {
 
         {/* Host Controls */}
         {isHost && (
-          <div style={{ textAlign: 'center' }}>
+          <div className="text-center">
             <button
               onClick={handleStartGame}
               disabled={players.length === 0 || loading}
-              style={{
-                background: players.length > 0 ? '#4CAF50' : '#ccc',
-                color: 'white',
-                fontSize: '1.5rem',
-                fontWeight: 'bold',
-                padding: '1.5rem 3rem',
-                border: 'none',
-                borderRadius: '16px',
-                cursor: players.length > 0 ? 'pointer' : 'not-allowed',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '1rem',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-                transition: 'transform 0.2s ease',
-                opacity: loading ? 0.7 : 1
-              }}
-              onMouseEnter={(e) => {
-                if (players.length > 0 && !loading) {
-                  e.target.style.transform = 'translateY(-4px)';
+              className={`
+                ${players.length > 0 
+                  ? 'bg-green-500 hover:bg-green-600 cursor-pointer' 
+                  : 'bg-gray-600 cursor-not-allowed'
                 }
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.transform = 'translateY(0)';
-              }}
+                text-white text-2xl font-bold px-12 py-6 border-none rounded-2xl
+                inline-flex items-center gap-4 shadow-lg transition-all duration-200
+                ${loading ? 'opacity-70' : ''}
+                ${players.length > 0 && !loading ? 'hover:-translate-y-1' : ''}
+              `}
             >
               <Play size={32} />
               {loading ? 'Starting...' : `Start Game (${players.length} ${players.length === 1 ? 'player' : 'players'})`}
             </button>
             
             {players.length === 0 && (
-              <p style={{ marginTop: '1rem', opacity: 0.8 }}>
+              <p className="mt-4 text-textMuted">
                 Waiting for at least 1 player to join...
               </p>
             )}
@@ -239,18 +172,12 @@ const KahootLobby = ({ roomCode, playerName, isHost, onGameStart }) => {
 
         {/* Student Waiting Message */}
         {!isHost && (
-          <div style={{
-            textAlign: 'center',
-            background: 'rgba(255, 255, 255, 0.2)',
-            borderRadius: '16px',
-            padding: '2rem',
-            backdropFilter: 'blur(10px)'
-          }}>
-            <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⏳</div>
-            <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+          <div className="text-center bg-surface border border-white/10 rounded-2xl p-8 backdrop-blur-md shadow-lg">
+            <div className="text-3xl mb-4">⏳</div>
+            <h3 className="text-2xl font-bold mb-2 text-white">
               Get Ready!
             </h3>
-            <p style={{ opacity: 0.9 }}>
+            <p className="text-textMuted">
               Waiting for your teacher to start the game...
             </p>
           </div>
