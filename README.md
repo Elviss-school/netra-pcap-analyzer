@@ -22,18 +22,23 @@ This is a custom Wireshark Lua Pluigin that integrates Wireshark with the Netra 
 ## Prerequisites
 
 1. Wireshark Installed
-2. Lua support enabled (default in most Wireshark Builds)
+2. Lua support enabled (enabled by default)
 
 ## Step-by-Step Setup
 
-1. Open <strong>Wireshark</strong>
-2. Navigate to:
-```Help → About Wireshark → Folders```
-3. Locate the <strong>Personal Lua Plugins</storng> directory
-4. Copy the plugin file into that folder:
+1. Clone or download this repository
+2. Navigate to the following folder in this project:
+```/Wireshark plugin/```
+3. Copy the file:
 ```netra.lua```
-5. Restart <strong>Wireshark</strong>
-6. Go to
+4. Open <strong>Wireshark</strong>
+5. Navigate to:
+```Help → About Wireshark → Folders```
+6. Locate the <strong>Personal Lua Plugins</storng> directory
+7. Copy the plugin file into that folder:
+```netra.lua```
+8. Restart <strong>Wireshark</strong>
+9. Go to
 ```Tools → Netra Help```
 
 ## Website Integration
