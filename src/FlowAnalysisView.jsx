@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Brain, Zap, Shield, Activity, TrendingUp, AlertTriangle, Sparkles, Loader, Globe, Server, BarChart3 } from 'lucide-react';
 
 // GROQ API Configuration - GET YOUR KEY: https://console.groq.com/keys
-const GROQ_API_KEY = process.env.REACT_APP_GROQ_API_KEY || "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";
+const GROQ_API_KEY = process.env.REACT_APP_GROQ_API_KEY;
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 export default function FlowAnalysisView({ studentMode, pcapData }) {
