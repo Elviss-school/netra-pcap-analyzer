@@ -4,16 +4,17 @@ import { initializeApp } from 'firebase/app';
 import { getDatabase } from 'firebase/database';
 import { getAuth } from 'firebase/auth';
 
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyBqW-ri72TLyfB76zXP8_RHfFfhSuh9PX8",
-  authDomain: "netra-test-c3b95.firebaseapp.com",
-  databaseURL: "https://netra-test-c3b95-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "netra-test-c3b95",
-  storageBucket: "netra-test-c3b95.firebasestorage.app",
-  messagingSenderId: "352211121830",
-  appId: "1:352211121830:web:65a4ff2198df7efc406667"
+  apiKey: "AIzaSyBHQGY7CNdeaesg3SRKjBPozucg-KenbuY",
+  authDomain: "netra-final.firebaseapp.com",
+  databaseURL: "https://netra-final-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "netra-final",
+  storageBucket: "netra-final.firebasestorage.app",
+  messagingSenderId: "566408689059",
+  appId: "1:566408689059:web:5ee48d43393e3bcc19d616",
+  measurementId: "G-X46TKZZS8N"
 };
-
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
