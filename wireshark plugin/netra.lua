@@ -2,7 +2,7 @@
 
 -- 1. Function to open the website
 local function open_netra_website()
-    browser_open_url("https://netra-test-c3b95.web.app/")
+    browser_open_url("https://netra-final.web.app/")
 end
 
 -- 2. Add to the "Tools" Menu
