@@ -3,6 +3,7 @@
 // ============================================================================
 // This version includes comprehensive protocol detection for ALL IP protocols
 // Fixes the issue where SSH, FTP, and other protocols showed as "OTHER"
+// FIXED: Progress throttling to prevent stack overflow on large files
 // ============================================================================
 
 import AuthPage from './components/AuthPage';
@@ -306,14 +307,18 @@ useEffect(() => {
 
           if (type === 'progress') {
             setProgress(workerProgress);
-            console.log(`Progress: ${workerProgress.toFixed(1)}% (${packetsProcessed} packets)`);
+            
+            // ===== ONLY LOG EVERY 10% =====
+            if (workerProgress % 10 === 0) {
+              console.log(`Progress: ${workerProgress.toFixed(0)}% (${packetsProcessed} packets)`);
+            }
           } else if (type === 'complete') {
-            console.log('Web Worker parsing complete');
+            console.log('✅ Web Worker parsing complete');
             worker.terminate();
             workerRef.current = null;
             resolve(data);
           } else if (type === 'error') {
-            console.error('Web Worker error:', workerError);
+            console.error('❌ Web Worker error:', workerError);
             worker.terminate();
             workerRef.current = null;
             reject(new Error(workerError));
@@ -363,6 +368,8 @@ useEffect(() => {
    * - 40+ application protocols by port (SSH, HTTP, FTP, RDP, MySQL, etc.)
    * - IPv6 and ARP packets
    * - Unknown protocols labeled as "IP-PROTO-X"
+   * 
+   * FIXED: Debounced progress updates using requestAnimationFrame
    */
   const parsePcapInline = (arrayBuffer) => {
     const dataView = new DataView(arrayBuffer);
@@ -408,9 +415,45 @@ useEffect(() => {
     let offset = 24; // Skip global header
     let startTime = null;
     let packetNum = 0;
+    
+    // ===== DEBOUNCED PROGRESS UPDATES =====
+    let pendingProgress = 0;
+    let progressUpdateScheduled = false;
+    
+    const updateProgress = () => {
+      if (pendingProgress > 0) {
+        setProgress(pendingProgress);
+        if (pendingProgress % 10 === 0) {
+          console.log(`Progress: ${pendingProgress}% (${packetNum} packets)`);
+        }
+      }
+      progressUpdateScheduled = false;
+    };
+    
+    const scheduleProgressUpdate = (progress) => {
+      pendingProgress = Math.floor(progress);
+      
+      if (!progressUpdateScheduled) {
+        progressUpdateScheduled = true;
+        // Use setTimeout instead of requestAnimationFrame for Node-like environments
+        setTimeout(updateProgress, 0);
+      }
+    };
 
     try {
-      while (offset < arrayBuffer.byteLength - 16) {
+      const totalBytes = arrayBuffer.byteLength;
+      let lastReportedProgress = 0;
+      
+      while (offset < totalBytes - 16) {
+        // ===== CALCULATE PROGRESS (but don't update state yet) =====
+        const currentProgress = Math.floor((offset / totalBytes) * 100);
+        
+        // Only schedule update if progress increased by 5%
+        if (currentProgress - lastReportedProgress >= 5) {
+          scheduleProgressUpdate(currentProgress);
+          lastReportedProgress = currentProgress;
+        }
+        
         // ===== READ PACKET HEADER =====
         const tsSec = dataView.getUint32(offset, littleEndian);
         const tsUsec = dataView.getUint32(offset + 4, littleEndian);
@@ -418,7 +461,7 @@ useEffect(() => {
         
         if (inclLen > 65535 || inclLen === 0) break;
         offset += 16;
-        if (offset + inclLen > arrayBuffer.byteLength) break;
+        if (offset + inclLen > totalBytes) break;
         
         const timestamp = tsSec + (tsUsec / 1000000);
         if (startTime === null) startTime = timestamp;
@@ -510,8 +553,8 @@ useEffect(() => {
             case 6: // TCP with port-based application detection
               const tcpHeaderStart = 14 + ipHeaderLen;
 
-               if (inclLen >= tcpHeaderStart + 20) {
-               packetInfo.protocol = 'TCP';
+              if (inclLen >= tcpHeaderStart + 20) {
+                packetInfo.protocol = 'TCP';
                 packetInfo.base_protocol = 'TCP';
 
                 const tcpOffset = offset + tcpHeaderStart;
@@ -722,7 +765,6 @@ useEffect(() => {
             default:
               // Unknown IP protocol
               packetInfo.protocol = `IP-PROTO-${ipProto}`;
-              console.warn(`⚠️ Unknown IP protocol: ${ipProto}`);
               break;
           }
 
@@ -757,14 +799,41 @@ useEffect(() => {
         offset += inclLen;
       }
       
+      // Final progress update
+      scheduleProgressUpdate(100);
+      
       console.log(`✅ Parsed ${packets.length} packets successfully`);
       
       // ===== CALCULATE SUMMARY STATISTICS =====
-      const duration = packets.length > 0 ? Math.max(...packets.map(p => p.time)) : 0;
-      const avgPacketSize = packetSizes.length > 0 ? packetSizes.reduce((a, b) => a + b, 0) / packetSizes.length : 0;
-      const maxPacketSize = packetSizes.length > 0 ? Math.max(...packetSizes) : 0;
-      const minPacketSize = packetSizes.length > 0 ? Math.min(...packetSizes) : 0;
+      let duration = 0;
+      if (packets.length > 0) {
+        for (let i = 0; i < packets.length; i++) {
+          if (packets[i].time > duration) {
+            duration = packets[i].time;
+          }
+        }
+      }
       
+      // Calculate packet size statistics
+      let avgPacketSize = 0;
+      let maxPacketSize = 0;
+      let minPacketSize = Infinity;
+
+      if (packetSizes.length > 0) {
+        let sum = 0;
+        for (let i = 0; i < packetSizes.length; i++) {
+          sum += packetSizes[i];
+          if (packetSizes[i] > maxPacketSize) maxPacketSize = packetSizes[i];
+          if (packetSizes[i] < minPacketSize) minPacketSize = packetSizes[i];
+        }
+        avgPacketSize = sum / packetSizes.length;
+      }
+
+      // If no packets were found, set min to 0
+      if (minPacketSize === Infinity) {
+        minPacketSize = 0;
+      }
+
       // Log protocol distribution
       console.log('📊 Protocol Distribution:');
       Object.entries(protocols)
@@ -773,7 +842,7 @@ useEffect(() => {
           const percentage = ((count / packets.length) * 100).toFixed(1);
           console.log(`   ${proto}: ${count} (${percentage}%)`);
         });
-      
+        
       return {
         packets,
         summary: {
